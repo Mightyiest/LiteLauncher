@@ -33,8 +33,19 @@ import app.olauncher.helper.openUrl
 import app.olauncher.helper.showKeyboard
 import app.olauncher.helper.showToast
 import app.olauncher.helper.uninstall
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.core.content.ContextCompat
+import android.content.pm.PackageManager
 
 class AppDrawerFragment : Fragment() {
+
+    private val requestPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            binding.search.query?.let { adapter.filter.filter(it) }
+        }
+    }
 
     private lateinit var prefs: Prefs
     private lateinit var adapter: AppDrawerAdapter
@@ -73,6 +84,14 @@ class AppDrawerFragment : Fragment() {
         initAdapter()
         initObservers()
         initClickListeners()
+
+        if (flag == Constants.FLAG_LAUNCH_APP && ContextCompat.checkSelfPermission(
+                requireContext(),
+                android.Manifest.permission.READ_CONTACTS
+            ) != PackageManager.PERMISSION_GRANTED
+        ) {
+            requestPermissionLauncher.launch(android.Manifest.permission.READ_CONTACTS)
+        }
     }
 
     private fun initViews() {
@@ -130,6 +149,7 @@ class AppDrawerFragment : Fragment() {
 
     private fun initAdapter() {
         adapter = AppDrawerAdapter(
+            requireContext(),
             flag,
             prefs.appLabelAlignment,
             appClickListener = { appModel ->
@@ -149,7 +169,9 @@ class AppDrawerFragment : Fragment() {
             },
             appDeleteListener = { appModel ->
                 when (appModel) {
-                    is AppModel.PrivateSpaceHeader -> {}
+                    is AppModel.PrivateSpaceHeader,
+                    is AppModel.Contact,
+                    is AppModel.ContactHeader -> {}
                     is AppModel.PinnedShortcut ->
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
                             requireContext().deletePinnedShortcut(
@@ -207,7 +229,7 @@ class AppDrawerFragment : Fragment() {
                     is AppModel.App -> appModel.appPackage
                     else -> return@AppDrawerAdapter
                 }
-                prefs.setAppRenameLabel(identifier, renameLabel)
+                prefs.setAppRenameLabel(identifier, renameLabel, appModel.user)
                 viewModel.getAppList()
             },
             privateSpaceToggleListener = {

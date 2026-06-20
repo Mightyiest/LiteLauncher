@@ -87,7 +87,7 @@ suspend fun getAppsList(
             for (profile in userManager.userProfiles) {
                 if (isPrivateSpaceProfile(context, profile)) continue
                 for (app in launcherApps.getActivityList(null, profile)) {
-                    val appLabelShown = prefs.getAppRenameLabel(app.applicationInfo.packageName)
+                    val appLabelShown = prefs.getAppRenameLabel(app.applicationInfo.packageName, profile)
                         .ifBlank { app.label.toString() }
                     val appModel = AppModel.App(
                         appLabel = appLabelShown,
@@ -151,7 +151,7 @@ private suspend fun getPinnedShortcuts(
                 try {
                     shortcuts.getShortcuts(query, profile)?.forEach { shortcut ->
                         if (shortcut.isPinned && pinnedShortcuts.none { it.shortcutId == shortcut.id }) {
-                            val label = prefs.getAppRenameLabel(shortcut.id)
+                            val label = prefs.getAppRenameLabel(shortcut.id, profile)
                                 .takeIf { it.isNotBlank() }
                                 ?: shortcut.shortLabel?.toString()
                                 ?: shortcut.longLabel?.toString().orEmpty()
@@ -236,7 +236,7 @@ suspend fun getPrivateSpaceApps(
 
             for (app in launcherApps.getActivityList(null, privateSpaceHandle)) {
                 if (app.applicationInfo.packageName == BuildConfig.APPLICATION_ID) continue
-                val appLabelShown = prefs.getAppRenameLabel(app.applicationInfo.packageName)
+                val appLabelShown = prefs.getAppRenameLabel(app.applicationInfo.packageName, privateSpaceHandle)
                     .ifBlank { app.label.toString() }
                 appList.add(
                     AppModel.App(

@@ -2,6 +2,7 @@ package app.olauncher.data
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.os.UserHandle
 import android.view.Gravity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
@@ -641,7 +642,17 @@ class Prefs(context: Context) {
         if (appPackageSwipeRight == packageName) appActivityClassNameRight = activityClassName
     }
 
-    fun getAppRenameLabel(appPackage: String): String = prefs.getString(appPackage, "").toString()
+    fun getAppRenameLabel(appPackage: String, user: UserHandle? = null): String {
+        val userSuffix = user?.toString()?.let { "|$it" } ?: ""
+        val renamed = prefs.getString(appPackage + userSuffix, "").toString()
+        if (renamed.isBlank() && userSuffix.isNotEmpty()) {
+            return prefs.getString(appPackage, "").toString()
+        }
+        return renamed
+    }
 
-    fun setAppRenameLabel(appPackage: String, renameLabel: String) = prefs.edit { putString(appPackage, renameLabel) }
+    fun setAppRenameLabel(appPackage: String, renameLabel: String, user: UserHandle? = null) = prefs.edit {
+        val userSuffix = user?.toString()?.let { "|$it" } ?: ""
+        putString(appPackage + userSuffix, renameLabel)
+    }
 }

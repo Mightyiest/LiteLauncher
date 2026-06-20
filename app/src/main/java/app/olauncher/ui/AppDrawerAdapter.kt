@@ -1,8 +1,12 @@
 package app.olauncher.ui
 
 import android.content.Context
+import android.content.Intent
 import android.content.pm.LauncherApps
+import android.content.pm.PackageManager
+import android.net.Uri
 import android.os.UserHandle
+import android.provider.ContactsContract
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
@@ -11,6 +15,7 @@ import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
 import android.widget.Filter
 import android.widget.Filterable
+import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.DiffUtil
 import androidx.recyclerview.widget.ListAdapter
@@ -20,12 +25,15 @@ import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
 import app.olauncher.databinding.AdapterAppDrawerBinding
 import app.olauncher.databinding.AdapterPrivateSpaceHeaderBinding
+import app.olauncher.databinding.AdapterContactHeaderBinding
+import app.olauncher.databinding.AdapterContactBinding
 import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.isSystemApp
 import app.olauncher.helper.showKeyboard
 import java.text.Normalizer
 
 class AppDrawerAdapter(
+    context: Context,
     private var flag: Int,
     private val appLabelGravity: Int,
     private val appClickListener: (AppModel) -> Unit,
@@ -37,9 +45,13 @@ class AppDrawerAdapter(
     private val privateSpaceSettingsListener: () -> Unit = {},
 ) : ListAdapter<AppModel, RecyclerView.ViewHolder>(DIFF_CALLBACK), Filterable {
 
+    private val appContext = context.applicationContext
+
     companion object {
         const val VIEW_TYPE_APP = 0
         const val VIEW_TYPE_PRIVATE_HEADER = 1
+        const val VIEW_TYPE_CONTACT_HEADER = 2
+        const val VIEW_TYPE_CONTACT = 3
 
         val DIFF_CALLBACK = object : DiffUtil.ItemCallback<AppModel>() {
             override fun areItemsTheSame(oldItem: AppModel, newItem: AppModel): Boolean = when {
@@ -50,6 +62,11 @@ class AppDrawerAdapter(
                     oldItem.shortcutId == newItem.shortcutId && oldItem.user == newItem.user
 
                 oldItem is AppModel.PrivateSpaceHeader && newItem is AppModel.PrivateSpaceHeader -> true
+
+                oldItem is AppModel.Contact && newItem is AppModel.Contact ->
+                    oldItem.phoneNumber == newItem.phoneNumber
+
+                oldItem is AppModel.ContactHeader && newItem is AppModel.ContactHeader -> true
 
                 else -> false
             }
@@ -73,26 +90,29 @@ class AppDrawerAdapter(
     override fun getItemViewType(position: Int): Int {
         return when (appFilteredList.getOrNull(position)) {
             is AppModel.PrivateSpaceHeader -> VIEW_TYPE_PRIVATE_HEADER
+            is AppModel.ContactHeader -> VIEW_TYPE_CONTACT_HEADER
+            is AppModel.Contact -> VIEW_TYPE_CONTACT
             else -> VIEW_TYPE_APP
         }
     }
 
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): RecyclerView.ViewHolder {
+        val inflater = LayoutInflater.from(parent.context)
         return when (viewType) {
             VIEW_TYPE_PRIVATE_HEADER -> PrivateSpaceHeaderViewHolder(
-                AdapterPrivateSpaceHeaderBinding.inflate(
-                    LayoutInflater.from(parent.context),
-                    parent,
-                    false
-                )
+                AdapterPrivateSpaceHeaderBinding.inflate(inflater, parent, false)
+            )
+
+            VIEW_TYPE_CONTACT_HEADER -> ContactHeaderViewHolder(
+                AdapterContactHeaderBinding.inflate(inflater, parent, false)
+            )
+
+            VIEW_TYPE_CONTACT -> ContactViewHolder(
+                AdapterContactBinding.inflate(inflater, parent, false)
             )
 
             else -> ViewHolder(
-                AdapterAppDrawerBinding.inflate(
-                    LayoutInflater.from(parent.context),
-                    parent,
-                    false
-                )
+                AdapterAppDrawerBinding.inflate(inflater, parent, false)
             )
         }
     }
@@ -108,6 +128,16 @@ class AppDrawerAdapter(
                         privateSpaceToggleListener,
                         privateSpaceSettingsListener,
                     )
+                }
+
+                is ContactHeaderViewHolder -> {
+                    holder.bind(appLabelGravity)
+                }
+
+                is ContactViewHolder -> {
+                    if (appModel is AppModel.Contact) {
+                        holder.bind(appModel, appLabelGravity)
+                    }
                 }
 
                 is ViewHolder -> holder.bind(
@@ -140,6 +170,18 @@ class AppDrawerAdapter(
                     app !is AppModel.PrivateSpaceHeader && appLabelMatches(app.appLabel, charSearch)
                 } as MutableList<AppModel>)
 
+                if (!charSearch.isNullOrBlank() && ContextCompat.checkSelfPermission(
+                        appContext,
+                        android.Manifest.permission.READ_CONTACTS
+                    ) == PackageManager.PERMISSION_GRANTED
+                ) {
+                    val contacts = queryContacts(charSearch.toString())
+                    if (contacts.isNotEmpty()) {
+                        appFilteredList.add(AppModel.ContactHeader())
+                        appFilteredList.addAll(contacts)
+                    }
+                }
+
                 val filterResults = FilterResults()
                 filterResults.values = appFilteredList
                 return filterResults
@@ -166,6 +208,8 @@ class AppDrawerAdapter(
                 && flag == Constants.FLAG_LAUNCH_APP
                 && appFilteredList.isNotEmpty()
                 && appFilteredList[0] !is AppModel.PrivateSpaceHeader
+                && appFilteredList[0] !is AppModel.Contact
+                && appFilteredList[0] !is AppModel.ContactHeader
             ) appClickListener(appFilteredList[0])
         } catch (e: Exception) {
             e.printStackTrace()
@@ -201,8 +245,42 @@ class AppDrawerAdapter(
     }
 
     fun launchFirstInList() {
-        val first = appFilteredList.firstOrNull { it !is AppModel.PrivateSpaceHeader }
+        val first = appFilteredList.firstOrNull {
+            it !is AppModel.PrivateSpaceHeader &&
+            it !is AppModel.Contact &&
+            it !is AppModel.ContactHeader
+        }
         if (first != null) appClickListener(first)
+    }
+
+    private fun queryContacts(query: String): List<AppModel.Contact> {
+        val contactList = mutableListOf<AppModel.Contact>()
+        val uri = Uri.withAppendedPath(
+            ContactsContract.CommonDataKinds.Phone.CONTENT_FILTER_URI,
+            Uri.encode(query)
+        )
+        val projection = arrayOf(
+            ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME,
+            ContactsContract.CommonDataKinds.Phone.NUMBER
+        )
+        try {
+            appContext.contentResolver.query(uri, projection, null, null, null)?.use { cursor ->
+                val nameIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.DISPLAY_NAME)
+                val numberIndex = cursor.getColumnIndex(ContactsContract.CommonDataKinds.Phone.NUMBER)
+                if (nameIndex != -1 && numberIndex != -1) {
+                    while (cursor.moveToNext()) {
+                        val name = cursor.getString(nameIndex) ?: ""
+                        val number = cursor.getString(numberIndex) ?: ""
+                        if (name.isNotBlank() && number.isNotBlank()) {
+                            contactList.add(AppModel.Contact(name, number))
+                        }
+                    }
+                }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+        return contactList.distinctBy { it.appLabel }
     }
 
     class PrivateSpaceHeaderViewHolder(private val binding: AdapterPrivateSpaceHeaderBinding) :
@@ -217,6 +295,31 @@ class AppDrawerAdapter(
             privateSpaceTitle.setOnLongClickListener {
                 settingsListener()
                 true
+            }
+        }
+    }
+
+    class ContactHeaderViewHolder(private val binding: AdapterContactHeaderBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        fun bind(appLabelGravity: Int) {
+            binding.contactHeaderTitle.gravity = appLabelGravity
+        }
+    }
+
+    class ContactViewHolder(private val binding: AdapterContactBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        fun bind(contact: AppModel.Contact, appLabelGravity: Int) = with(binding) {
+            contactTitle.text = "📞 ${contact.appLabel}"
+            contactTitle.gravity = appLabelGravity
+            contactTitle.setOnClickListener {
+                try {
+                    val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${contact.phoneNumber}")).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                    }
+                    it.context.startActivity(intent)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
             }
         }
     }
