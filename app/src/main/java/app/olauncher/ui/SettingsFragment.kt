@@ -67,15 +67,10 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         viewModel.suppressBackToHome = false
-        if (granted) {
-            prefs.weatherLastUpdated = 0L
-            viewModel.refreshWeather(force = true) { ok ->
-                if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))
-            }
-        } else if (isAdded) {
-            prefs.weatherMode = Constants.WeatherMode.OFF
-            populateWeatherSetting()
-            requireContext().showToast(getString(R.string.weather_unavailable))
+        if (!granted) prefs.weatherIpFallback = true
+        prefs.weatherLastUpdated = 0L
+        viewModel.refreshWeather(force = true) { ok ->
+            if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))
         }
     }
 
@@ -818,15 +813,14 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun updateWeatherMode(mode: Int) {
         prefs.weatherMode = mode
+        prefs.cachedWeatherText = ""
+        prefs.weatherLastUpdated = 0L
         populateWeatherSetting()
         if (mode == Constants.WeatherMode.OFF) {
-            prefs.cachedWeatherText = ""
-            prefs.weatherLastUpdated = 0L
             viewModel.weatherValue.postValue("")
             return
         }
-        if (WeatherHelper.hasWeatherLocationPermission(requireContext())) {
-            prefs.weatherLastUpdated = 0L
+        if (WeatherHelper.canFetchWeather(requireContext(), prefs)) {
             viewModel.refreshWeather(force = true) { ok ->
                 if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))
             }

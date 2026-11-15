@@ -71,12 +71,9 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         ActivityResultContracts.RequestPermission()
     ) { granted ->
         viewModel.suppressBackToHome = false
-        if (granted) {
-            viewModel.refreshWeather(force = true) { ok ->
-                if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))
-            }
-        } else {
-            populateWeather()
+        if (!granted) prefs.weatherIpFallback = true
+        viewModel.refreshWeather(force = true) { ok ->
+            if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))
         }
     }
 
@@ -357,19 +354,25 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             return
         }
         binding.tvWeather.isVisible = true
-        if (!WeatherHelper.hasWeatherLocationPermission(requireContext())) {
+        if (!WeatherHelper.canFetchWeather(requireContext(), prefs)) {
             binding.tvWeather.text = getString(R.string.tap_for_local_weather)
             return
         }
-        binding.tvWeather.text = prefs.cachedWeatherText.ifBlank { "\u2026" }
+        binding.tvWeather.text = prefs.cachedWeatherText.ifBlank { getString(R.string.refreshing_weather) }
         viewModel.refreshWeather(force = false)
     }
 
     private fun onWeatherClick() {
-        if (!WeatherHelper.hasWeatherLocationPermission(requireContext())) {
+        if (!WeatherHelper.canFetchWeather(requireContext(), prefs)) {
             viewModel.suppressBackToHome = true
-            requestWeatherPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            try {
+                requestWeatherPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            } catch (e: Exception) {
+                viewModel.suppressBackToHome = false
+                e.printStackTrace()
+            }
         } else {
+            binding.tvWeather.text = getString(R.string.refreshing_weather)
             requireContext().showToast(getString(R.string.refreshing_weather))
             viewModel.refreshWeather(force = true) { ok ->
                 if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))

@@ -50,6 +50,7 @@ class Prefs(context: Context) {
     private val WEATHER_LAST_UPDATED = "WEATHER_LAST_UPDATED"
     private val LAST_WEATHER_LAT = "LAST_WEATHER_LAT"
     private val LAST_WEATHER_LON = "LAST_WEATHER_LON"
+    private val WEATHER_IP_FALLBACK = "WEATHER_IP_FALLBACK"
     private val FONT_FAMILY = "FONT_FAMILY"
     private val LOCK_HIDDEN_APPS = "LOCK_HIDDEN_APPS"
     private val MINDFUL_APPS = "MINDFUL_APPS"
@@ -714,6 +715,10 @@ class Prefs(context: Context) {
     var lastWeatherLon: Float
         get() = prefs.getFloat(LAST_WEATHER_LON, Float.NaN)
         set(value) = prefs.edit { putFloat(LAST_WEATHER_LON, value) }
+
+    var weatherIpFallback: Boolean
+        get() = prefs.getBoolean(WEATHER_IP_FALLBACK, false)
+        set(value) = prefs.edit { putBoolean(WEATHER_IP_FALLBACK, value) }
 
     var fontFamily: String
         get() = prefs.getString(FONT_FAMILY, Constants.FontFamily.LIGHT) ?: Constants.FontFamily.LIGHT

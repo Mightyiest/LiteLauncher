@@ -30,6 +30,7 @@
         android:layout_height="wrap_content"
         android:layout_marginHorizontal="24dp"
         android:layout_marginTop="56dp"
+        android:elevation="2dp"
         android:orientation="vertical"
         android:visibility="gone"
         tools:visibility="visible">
@@ -63,6 +64,7 @@
             android:layout_marginTop="2dp"
             android:alpha="0.9"
             android:paddingHorizontal="3dp"
+            android:paddingVertical="4dp"
             android:textSize="16sp"
             android:visibility="gone"
             tools:text="Manila · 30°C Clear"
@@ -78,6 +80,7 @@
         android:layout_gravity="end"
         android:layout_marginHorizontal="10dp"
         android:layout_marginTop="72dp"
+        android:elevation="2dp"
         android:gravity="center"
         android:padding="10dp"
         android:textSize="@dimen/date_size"

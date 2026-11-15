@@ -600,11 +600,20 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             return
         }
         if (!force && weatherJob?.isActive == true) return
+        if (cached == null && WeatherHelper.canFetchWeather(appContext, prefs)) {
+            weatherValue.postValue(appContext.getString(R.string.refreshing_weather))
+        }
         weatherJob?.cancel()
         weatherJob = viewModelScope.launch(Dispatchers.IO) {
             val result = WeatherHelper.fetchCurrentWeather(appContext, prefs)
             if (result != null) {
                 weatherValue.postValue(result)
+            } else {
+                weatherValue.postValue(
+                    prefs.cachedWeatherText.ifBlank {
+                        appContext.getString(R.string.weather_tap_to_retry)
+                    }
+                )
             }
             if (onResult != null) {
                 withContext(Dispatchers.Main) {

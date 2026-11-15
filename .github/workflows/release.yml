@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v6.6.20-PlayProtect)'
+        description: 'Release tag (e.g. v6.6.21-PlayProtect)'
         required: false
-        default: 'v6.6.20-PlayProtect'
+        default: 'v6.6.21-PlayProtect'
 
 permissions:
   contents: write
@@ -73,7 +73,7 @@ jobs:
           elif [[ -n "${{ inputs.tag_name }}" ]]; then
             TAG="${{ inputs.tag_name }}"
           else
-            TAG="v6.6.20-PlayProtect"
+            TAG="v6.6.21-PlayProtect"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           mkdir -p dist
@@ -117,7 +117,8 @@ jobs:
           - **LiteLauncher-PlayProtect-__BASE_VER__-debug.apk**: PlayProtect debug build (`app.litelauncher.debug`, installs side-by-side).
 
           ### What's New in __BASE_VER__
-          - **Location-based Weather label**: Shows `City · Temp Condition` under the Home date using coarse location and Open-Meteo (with °C / °F / Off in Settings and tap-to-enable/refresh).
+          - **Reliable Multi-Provider Weather & Location Fallback**: Uses MET Norway, wttr.in, and Open-Meteo with coarse fused/network location and automatic IP-geolocation fallback when location permission or GPS/network providers are unavailable, plus higher touch priority and instant unit-switch refresh.
+          - **Location-based Weather label**: Shows `City · Temp Condition` under the Home date (with °C / °F / Off in Settings and tap-to-enable/refresh).
           - **Mindful App Pause**: Adds a 4-second breath countdown with today's usage time before opening selected distracting apps.
           - **Biometric / PIN Lock for Hidden Apps**: Secures hidden apps access, lock disabling, and backup export using fingerprint or device screen lock.
           - **Custom Font Picker**: Choose `Light`, `System`, `Mono`, `Serif`, or `Condensed` across the Home screen and App Drawer.
