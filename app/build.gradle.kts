@@ -20,17 +20,34 @@ android {
         applicationId = "app.litelauncher"
         minSdk = 24
         targetSdk = 35
-        versionCode = 108
-        versionName = "v6.6.17"
+        versionCode = 109
+        versionName = "v6.6.18"
 
         resourceConfigurations.addAll(listOf("en", "ar", "de", "es-rES", "es-rUS", "fr", "he", "hr", "hu", "in", "it", "ja", "nl", "pl", "pt-rBR", "ru-rRU", "sv", "tr", "uk", "zh"))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    val keystoreFile = System.getenv("KEYSTORE_FILE")?.takeIf { it.isNotBlank() }?.let { java.io.File(it) }
+    val hasReleaseSigning = keystoreFile?.exists() == true
+
+    signingConfigs {
+        if (hasReleaseSigning) {
+            create("release") {
+                storeFile = keystoreFile
+                storePassword = System.getenv("KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("KEY_ALIAS")
+                keyPassword = System.getenv("KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isDebuggable = false
             isMinifyEnabled = true
+            if (hasReleaseSigning) {
+                signingConfig = signingConfigs.getByName("release")
+            }
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
         debug {
@@ -54,7 +71,8 @@ dependencies {
     implementation(libs.recyclerview)
 
     // Android lifecycle
-    implementation(libs.lifecycle.extensions)
+    implementation(libs.lifecycle.livedata.ktx)
+    implementation(libs.lifecycle.runtime.ktx)
     implementation(libs.lifecycle.viewmodel.ktx)
 
     // Navigation

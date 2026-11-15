@@ -5,6 +5,7 @@ import android.app.SearchManager
 import android.app.WallpaperManager
 import android.content.ClipData
 import android.content.ClipboardManager
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
@@ -76,8 +77,8 @@ suspend fun getAppsList(
         val appList: MutableList<AppModel> = mutableListOf()
 
         try {
-            if (!Prefs(context).hiddenAppsUpdated) upgradeHiddenApps(Prefs(context))
-            val hiddenApps = Prefs(context).hiddenApps
+            if (!prefs.hiddenAppsUpdated) upgradeHiddenApps(prefs)
+            val hiddenApps = prefs.hiddenApps
 
             val userManager = context.getSystemService(Context.USER_SERVICE) as UserManager
             val launcherApps =
@@ -182,7 +183,7 @@ private fun upgradeHiddenApps(prefs: Prefs) {
     val newHiddenAppsSet = mutableSetOf<String>()
     for (hiddenPackage in hiddenAppsSet) {
         if (hiddenPackage.contains("|")) newHiddenAppsSet.add(hiddenPackage)
-        else newHiddenAppsSet.add(hiddenPackage + android.os.Process.myUserHandle().toString())
+        else newHiddenAppsSet.add(hiddenPackage + "|" + android.os.Process.myUserHandle().toString())
     }
     prefs.hiddenApps = newHiddenAppsSet
     prefs.hiddenAppsUpdated = true
@@ -335,16 +336,21 @@ fun openAppInfo(context: Context, userHandle: UserHandle, packageName: String) {
 suspend fun getBitmapFromURL(src: String?): Bitmap? {
     return withContext(Dispatchers.IO) {
         var bitmap: Bitmap? = null
+        var connection: HttpURLConnection? = null
         try {
             val url = URL(src)
-            val connection: HttpURLConnection = url
-                .openConnection() as HttpURLConnection
-            connection.doInput = true
-            connection.connect()
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15_000
+                readTimeout = 15_000
+                doInput = true
+                connect()
+            }
             val input: InputStream = connection.inputStream
-            bitmap = BitmapFactory.decodeStream(input)
+            bitmap = input.use { BitmapFactory.decodeStream(it) }
         } catch (e: Exception) {
             e.printStackTrace()
+        } finally {
+            connection?.disconnect()
         }
         bitmap
     }
@@ -417,6 +423,7 @@ fun getScreenDimensions(context: Context): Pair<Int, Int> {
 suspend fun getTodaysWallpaper(wallType: String, firstOpenTime: Long): String {
     return withContext(Dispatchers.IO) {
         var wallpaperUrl: String
+        var connection: HttpURLConnection? = null
         try {
             val key = if (firstOpenTime.isDaySince() < 10)
                 String.format("0_%s", firstOpenTime.isDaySince().toString())
@@ -427,15 +434,20 @@ suspend fun getTodaysWallpaper(wallType: String, firstOpenTime: Long): String {
             }
 
             val url = URL(Constants.URL_WALLPAPERS)
-            val connection: HttpURLConnection = url.openConnection() as HttpURLConnection
-            connection.doInput = true
-            connection.connect()
+            connection = (url.openConnection() as HttpURLConnection).apply {
+                connectTimeout = 15_000
+                readTimeout = 15_000
+                doInput = true
+                connect()
+            }
 
-            val inputStream = connection.inputStream
-            val scanner = Scanner(inputStream)
             val stringBuffer = StringBuffer()
-            while (scanner.hasNext()) {
-                stringBuffer.append(scanner.nextLine())
+            connection.inputStream.use { inputStream ->
+                Scanner(inputStream).use { scanner ->
+                    while (scanner.hasNext()) {
+                        stringBuffer.append(scanner.nextLine())
+                    }
+                }
             }
 
             val json = JSONObject(stringBuffer.toString())
@@ -447,6 +459,8 @@ suspend fun getTodaysWallpaper(wallType: String, firstOpenTime: Long): String {
         } catch (e: Exception) {
             wallpaperUrl = getBackupWallpaper(wallType)
             wallpaperUrl
+        } finally {
+            connection?.disconnect()
         }
     }
 }
@@ -528,8 +542,16 @@ fun isAccessServiceEnabled(context: Context): Boolean {
         0
     }
     if (enabled == 1) {
-        val enabledServicesString: String? = Settings.Secure.getString(context.contentResolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES)
-        return enabledServicesString?.contains(context.packageName + "/" + MyAccessibilityService::class.java.name) ?: false
+        val enabledServicesString: String = Settings.Secure.getString(
+            context.contentResolver,
+            Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES
+        ) ?: return false
+        val expectedComponent = ComponentName(context, MyAccessibilityService::class.java)
+        val fullName = expectedComponent.flattenToString()
+        val shortName = expectedComponent.flattenToShortString()
+        return enabledServicesString.split(':').any { service ->
+            service.equals(fullName, ignoreCase = true) || service.equals(shortName, ignoreCase = true)
+        }
     }
     return false
 }

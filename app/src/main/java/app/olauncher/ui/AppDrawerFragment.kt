@@ -97,7 +97,7 @@ class AppDrawerFragment : Fragment() {
     private fun initViews() {
         if (flag == Constants.FLAG_HIDDEN_APPS)
             binding.search.queryHint = getString(R.string.hidden_apps)
-        else if (flag in Constants.FLAG_SET_HOME_APP_1..Constants.FLAG_SET_CALENDAR_APP)
+        else if (flag in Constants.FLAG_SET_HOME_APP_1..Constants.FLAG_SET_SCREEN_TIME_APP)
             binding.search.queryHint = "Please select an app"
         try {
             val searchTextView = binding.search.findViewById<TextView>(R.id.search_src_text)
@@ -194,14 +194,12 @@ class AppDrawerFragment : Fragment() {
                 }
                 viewModel.getAppList()
             },
-            appHideListener = { appModel, position ->
+            appHideListener = { appModel, _ ->
                 if (appModel is AppModel.PinnedShortcut) {
                     requireContext().showToast("Hiding pinned shortcuts is not supported")
                     return@AppDrawerAdapter
                 }
-                adapter.appFilteredList.removeAt(position)
-                adapter.notifyItemRemoved(position)
-                adapter.appsList.remove(appModel)
+                adapter.removeApp(appModel)
 
                 val newSet = mutableSetOf<String>()
                 newSet.addAll(prefs.hiddenApps)

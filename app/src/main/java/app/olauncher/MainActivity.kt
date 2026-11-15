@@ -40,6 +40,7 @@ import app.olauncher.helper.setPlainWallpaper
 import app.olauncher.helper.shareApp
 import app.olauncher.helper.showLauncherSelector
 import app.olauncher.helper.showToast
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -347,12 +348,19 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun restartLauncherOrCheckTheme(forceRestart: Boolean = false) {
-        if (forceRestart || prefs.launcherRestartTimestamp.hasBeenHours(4)) {
+        if (forceRestart) {
             prefs.launcherRestartTimestamp = System.currentTimeMillis()
-            cacheDir.deleteRecursively()
+            val cache = applicationContext.cacheDir
+            lifecycleScope.launch(Dispatchers.IO) { cache.deleteRecursively() }
             recreate()
-        } else
+        } else {
+            if (prefs.launcherRestartTimestamp.hasBeenHours(4)) {
+                prefs.launcherRestartTimestamp = System.currentTimeMillis()
+                val cache = applicationContext.cacheDir
+                lifecycleScope.launch(Dispatchers.IO) { cache.deleteRecursively() }
+            }
             checkTheme()
+        }
     }
 
     private fun checkTheme() {

@@ -64,7 +64,7 @@ class AppDrawerAdapter(
                 oldItem is AppModel.PrivateSpaceHeader && newItem is AppModel.PrivateSpaceHeader -> true
 
                 oldItem is AppModel.Contact && newItem is AppModel.Contact ->
-                    oldItem.phoneNumber == newItem.phoneNumber
+                    oldItem.appLabel == newItem.appLabel && oldItem.phoneNumber == newItem.phoneNumber
 
                 oldItem is AppModel.ContactHeader && newItem is AppModel.ContactHeader -> true
 
@@ -88,7 +88,7 @@ class AppDrawerAdapter(
     var appFilteredList: MutableList<AppModel> = mutableListOf()
 
     override fun getItemViewType(position: Int): Int {
-        return when (appFilteredList.getOrNull(position)) {
+        return when (currentList.getOrNull(position)) {
             is AppModel.PrivateSpaceHeader -> VIEW_TYPE_PRIVATE_HEADER
             is AppModel.ContactHeader -> VIEW_TYPE_CONTACT_HEADER
             is AppModel.Contact -> VIEW_TYPE_CONTACT
@@ -119,8 +119,9 @@ class AppDrawerAdapter(
 
     override fun onBindViewHolder(holder: RecyclerView.ViewHolder, position: Int) {
         try {
-            if (appFilteredList.isEmpty() || position == RecyclerView.NO_POSITION) return
-            val appModel = appFilteredList[holder.bindingAdapterPosition]
+            val pos = holder.bindingAdapterPosition
+            if (pos == RecyclerView.NO_POSITION || pos !in currentList.indices) return
+            val appModel = currentList[pos]
             when (holder) {
                 is PrivateSpaceHeaderViewHolder -> {
                     holder.bind(
@@ -165,25 +166,28 @@ class AppDrawerAdapter(
                 isBangSearch = charSearch?.startsWith("!") ?: false
                 autoLaunch = allowAutoLaunch && (charSearch?.startsWith(" ")?.not() ?: true)
 
-                val appFilteredList = (if (charSearch.isNullOrBlank()) appsList
+                val filtered = (if (charSearch.isNullOrBlank()) appsList.toMutableList()
                 else appsList.filter { app ->
                     app !is AppModel.PrivateSpaceHeader && appLabelMatches(app.appLabel, charSearch)
-                } as MutableList<AppModel>)
+                }.toMutableList())
 
-                if (!charSearch.isNullOrBlank() && ContextCompat.checkSelfPermission(
+                if (flag == Constants.FLAG_LAUNCH_APP &&
+                    !isBangSearch &&
+                    !charSearch.isNullOrBlank() &&
+                    ContextCompat.checkSelfPermission(
                         appContext,
                         android.Manifest.permission.READ_CONTACTS
                     ) == PackageManager.PERMISSION_GRANTED
                 ) {
                     val contacts = queryContacts(charSearch.toString())
                     if (contacts.isNotEmpty()) {
-                        appFilteredList.add(AppModel.ContactHeader())
-                        appFilteredList.addAll(contacts)
+                        filtered.add(AppModel.ContactHeader())
+                        filtered.addAll(contacts)
                     }
                 }
 
                 val filterResults = FilterResults()
-                filterResults.values = appFilteredList
+                filterResults.values = filtered
                 return filterResults
             }
 
@@ -192,7 +196,7 @@ class AppDrawerAdapter(
                 results?.values?.let {
                     val items = it as MutableList<AppModel>
                     appFilteredList = items
-                    submitList(appFilteredList) {
+                    submitList(items.toList()) {
                         autoLaunch()
                     }
                 }
@@ -229,7 +233,8 @@ class AppDrawerAdapter(
 
     fun setAppList(appsList: MutableList<AppModel>) {
         // Add empty app for bottom padding in recyclerview and assign to list
-        appsList.add(
+        val newList = appsList.toMutableList()
+        newList.add(
             AppModel.App(
                 appLabel = "",
                 key = null,
@@ -239,9 +244,15 @@ class AppDrawerAdapter(
                 user = android.os.Process.myUserHandle()
             )
         )
-        this.appsList = appsList
-        this.appFilteredList = appsList
-        submitList(appsList)
+        this.appsList = newList
+        this.appFilteredList = newList.toMutableList()
+        submitList(newList.toList())
+    }
+
+    fun removeApp(appModel: AppModel) {
+        appsList.remove(appModel)
+        appFilteredList = appFilteredList.filter { it != appModel }.toMutableList()
+        submitList(appFilteredList.toList())
     }
 
     fun launchFirstInList() {
@@ -280,7 +291,13 @@ class AppDrawerAdapter(
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return contactList.distinctBy { it.appLabel }
+        val distinctContacts = contactList.distinctBy {
+            "${it.appLabel.lowercase()}|${it.phoneNumber.filter(Char::isDigit).ifEmpty { it.phoneNumber.trim() }}"
+        }
+        val nameCounts = distinctContacts.groupingBy { it.appLabel.lowercase() }.eachCount()
+        return distinctContacts.map {
+            it.copy(showNumber = (nameCounts[it.appLabel.lowercase()] ?: 0) > 1)
+        }
     }
 
     class PrivateSpaceHeaderViewHolder(private val binding: AdapterPrivateSpaceHeaderBinding) :
@@ -309,7 +326,11 @@ class AppDrawerAdapter(
     class ContactViewHolder(private val binding: AdapterContactBinding) :
         RecyclerView.ViewHolder(binding.root) {
         fun bind(contact: AppModel.Contact, appLabelGravity: Int) = with(binding) {
-            contactTitle.text = "📞 ${contact.appLabel}"
+            contactTitle.text = if (contact.showNumber) {
+                "📞 ${contact.appLabel} (${contact.phoneNumber})"
+            } else {
+                "📞 ${contact.appLabel}"
+            }
             contactTitle.gravity = appLabelGravity
             contactTitle.setOnClickListener {
                 try {
@@ -326,6 +347,28 @@ class AppDrawerAdapter(
 
     class ViewHolder(private val binding: AdapterAppDrawerBinding) :
         RecyclerView.ViewHolder(binding.root) {
+
+        private var defaultAppName: String = ""
+
+        init {
+            binding.etAppRename.addTextChangedListener(object : TextWatcher {
+                override fun afterTextChanged(s: Editable?) {
+                    binding.etAppRename.hint = if (s.isNullOrEmpty()) defaultAppName else ""
+                }
+
+                override fun beforeTextChanged(
+                    s: CharSequence?,
+                    start: Int,
+                    count: Int,
+                    after: Int,
+                ) {
+                }
+
+                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                }
+            })
+        }
+
         fun bind(
             flag: Int,
             appLabelGravity: Int,
@@ -337,6 +380,7 @@ class AppDrawerAdapter(
             appHideListener: (AppModel, Int) -> Unit,
             appRenameListener: (AppModel, String) -> Unit,
         ) = with(binding) {
+            defaultAppName = ""
             appHideLayout.visibility = View.GONE
             renameLayout.visibility = View.GONE
             appTitle.visibility = View.VISIBLE
@@ -378,7 +422,8 @@ class AppDrawerAdapter(
             // Configure rename behavior
             appRename.setOnClickListener {
                 if (appModel.appPackage.isNotEmpty()) {
-                    etAppRename.hint = getAppName(etAppRename.context, appModel.appPackage, appModel.user)
+                    defaultAppName = getAppName(etAppRename.context, appModel.appPackage, appModel.user)
+                    etAppRename.hint = defaultAppName
                     etAppRename.setText(appModel.appLabel)
                     etAppRename.setSelectAllOnFocus(true)
                     renameLayout.visibility = View.VISIBLE
@@ -390,23 +435,6 @@ class AppDrawerAdapter(
             etAppRename.onFocusChangeListener = View.OnFocusChangeListener { _, hasFocus ->
                 appTitle.visibility = if (hasFocus) View.INVISIBLE else View.VISIBLE
             }
-            etAppRename.addTextChangedListener(object : TextWatcher {
-                override fun afterTextChanged(s: Editable?) {
-                    etAppRename.hint = getAppName(etAppRename.context, appModel.appPackage, appModel.user)
-                }
-
-                override fun beforeTextChanged(
-                    s: CharSequence?,
-                    start: Int,
-                    count: Int,
-                    after: Int,
-                ) {
-                }
-
-                override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
-                    etAppRename.hint = ""
-                }
-            })
             etAppRename.setOnEditorActionListener { _, actionCode, _ ->
                 if (actionCode == EditorInfo.IME_ACTION_DONE) {
                     val renameLabel = etAppRename.text.toString().trim()
@@ -425,10 +453,10 @@ class AppDrawerAdapter(
                     appRenameListener(appModel, renameLabel)
                     renameLayout.visibility = View.GONE
                 } else {
-                    appRenameListener(
-                        appModel,
+                    val fallbackName = defaultAppName.ifBlank {
                         getAppName(etAppRename.context, appModel.appPackage, appModel.user)
-                    )
+                    }
+                    appRenameListener(appModel, fallbackName)
                     renameLayout.visibility = View.GONE
                 }
             }

@@ -41,6 +41,7 @@ sealed class AppModel : Comparable<AppModel> {
     data class Contact(
         override val appLabel: String,
         val phoneNumber: String,
+        val showNumber: Boolean = false,
         override val user: UserHandle = android.os.Process.myUserHandle(),
     ) : AppModel() {
         override val key: CollationKey? = null
