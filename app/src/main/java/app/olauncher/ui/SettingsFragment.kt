@@ -97,6 +97,12 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
             binding.footer.text = getText(R.string.new_app_minimal_todo_lists)
     }
 
+    override fun onResume() {
+        super.onResume()
+        checkAdminPermission()
+        populateLockSettings()
+    }
+
     override fun onClick(view: View) {
         binding.appsNumSelectLayout.visibility = View.GONE
         binding.dateTimeSelectLayout.visibility = View.GONE
@@ -204,7 +210,13 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
 
             R.id.swipeLeftApp -> toggleSwipeLeft()
             R.id.swipeRightApp -> toggleSwipeRight()
-            R.id.toggleLock -> startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            R.id.toggleLock -> {
+                if (BuildConfig.USE_ACCESSIBILITY_LOCK) {
+                    startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+                } else {
+                    toggleLockMode()
+                }
+            }
         }
         return true
     }
@@ -383,7 +395,7 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun checkAdminPermission() {
         val isAdmin: Boolean = deviceManager.isAdminActive(componentName)
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.P)
+        if (!BuildConfig.USE_ACCESSIBILITY_LOCK || Build.VERSION.SDK_INT < Build.VERSION_CODES.P)
             prefs.lockModeOn = isAdmin
     }
 
@@ -400,12 +412,12 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         toggleAccessibilityVisibility(false)
         // prefs.lockModeOn = true
         populateLockSettings()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
+        if (BuildConfig.USE_ACCESSIBILITY_LOCK && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P)
             startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
     }
 
     private fun toggleLockMode() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        if (BuildConfig.USE_ACCESSIBILITY_LOCK && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             if (!prefs.lockModeOn && !isAccessServiceEnabled(requireContext())) {
                 toggleAccessibilityVisibility(true)
                 return
@@ -611,14 +623,14 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
     // }
 
     private fun populateLockSettings() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+        if (BuildConfig.USE_ACCESSIBILITY_LOCK && Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
             binding.toggleLock.text = getString(
                 if (prefs.lockModeOn && isAccessServiceEnabled(requireContext())) R.string.on
                 else R.string.off
             )
         } else {
             binding.toggleLock.text = getString(
-                if (prefs.lockModeOn) R.string.on
+                if (prefs.lockModeOn && deviceManager.isAdminActive(componentName)) R.string.on
                 else R.string.off
             )
         }

@@ -22,8 +22,8 @@ android {
         applicationId = "app.litelauncher"
         minSdk = 24
         targetSdk = 35
-        versionCode = 109
-        versionName = "v6.6.18"
+        versionCode = 110
+        versionName = "v6.6.19"
 
         resourceConfigurations.addAll(listOf("en", "ar", "de", "es-rES", "es-rUS", "fr", "he", "hr", "hu", "in", "it", "ja", "nl", "pl", "pt-rBR", "ru-rRU", "sv", "tr", "uk", "zh"))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -59,6 +59,21 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+
+    flavorDimensions += "distribution"
+
+    productFlavors {
+        create("playprotect") {
+            dimension = "distribution"
+            versionNameSuffix = "-PlayProtect"
+            buildConfigField("boolean", "USE_ACCESSIBILITY_LOCK", "false")
+        }
+        create("standard") {
+            dimension = "distribution"
+            buildConfigField("boolean", "USE_ACCESSIBILITY_LOCK", "true")
+        }
+    }
+
     buildFeatures {
         viewBinding = true
         buildConfig = true

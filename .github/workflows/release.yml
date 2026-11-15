@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v6.6.18)'
+        description: 'Release tag (e.g. v6.6.19-PlayProtect)'
         required: false
-        default: 'v6.6.18'
+        default: 'v6.6.19-PlayProtect'
 
 permissions:
   contents: write
@@ -44,7 +44,26 @@ jobs:
           KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
-          ./gradlew assembleRelease assembleDebug --stacktrace
+          ./gradlew assemblePlayprotectRelease assemblePlayprotectDebug assembleStandardRelease --stacktrace
+
+      - name: Verify PlayProtect APK manifests have no AccessibilityService
+        run: |
+          SDK_DIR="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          AAPT_BIN="$(ls -1 "$SDK_DIR"/build-tools/*/aapt 2>/dev/null | sort -V | tail -n 1)"
+          if [ -z "$AAPT_BIN" ]; then
+            echo "ERROR: aapt not found under $SDK_DIR/build-tools"
+            exit 1
+          fi
+          for apk in app/build/outputs/apk/playprotect/release/app-playprotect-release.apk app/build/outputs/apk/playprotect/debug/app-playprotect-debug.apk; do
+            echo "Inspecting merged AndroidManifest.xml in $apk"
+            MANIFEST_DUMP="$("$AAPT_BIN" dump xmltree "$apk" AndroidManifest.xml)"
+            if printf '%s\n' "$MANIFEST_DUMP" | grep -qiE 'BIND_ACCESSIBILITY_SERVICE|AccessibilityService|MyAccessibilityService'; then
+              echo "ERROR: Accessibility components/permissions found in $apk!"
+              printf '%s\n' "$MANIFEST_DUMP" | grep -iE 'BIND_ACCESSIBILITY_SERVICE|AccessibilityService|MyAccessibilityService'
+              exit 1
+            fi
+            echo "Verified clean: $apk"
+          done
 
       - name: Prepare APK artifacts
         id: prep
@@ -54,12 +73,23 @@ jobs:
           elif [[ -n "${{ inputs.tag_name }}" ]]; then
             TAG="${{ inputs.tag_name }}"
           else
-            TAG="v6.6.18"
+            TAG="v6.6.19-PlayProtect"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           mkdir -p dist
-          cp app/build/outputs/apk/release/app-release.apk "dist/LiteLauncher-${TAG}-release.apk"
-          cp app/build/outputs/apk/debug/app-debug.apk "dist/LiteLauncher-${TAG}-debug.apk"
+          if [[ "$TAG" == *PlayProtect* ]]; then
+            BASE_VER="${TAG%-PlayProtect}"
+            echo "base_ver=${BASE_VER}" >> "$GITHUB_OUTPUT"
+            echo "is_playprotect=true" >> "$GITHUB_OUTPUT"
+            cp app/build/outputs/apk/playprotect/release/app-playprotect-release.apk "dist/LiteLauncher-PlayProtect-${BASE_VER}-release.apk"
+            cp app/build/outputs/apk/playprotect/debug/app-playprotect-debug.apk "dist/LiteLauncher-PlayProtect-${BASE_VER}-debug.apk"
+          else
+            echo "base_ver=${TAG}" >> "$GITHUB_OUTPUT"
+            echo "is_playprotect=false" >> "$GITHUB_OUTPUT"
+            cp app/build/outputs/apk/playprotect/release/app-playprotect-release.apk "dist/LiteLauncher-PlayProtect-${TAG}-release.apk"
+            cp app/build/outputs/apk/playprotect/debug/app-playprotect-debug.apk "dist/LiteLauncher-PlayProtect-${TAG}-debug.apk"
+            cp app/build/outputs/apk/standard/release/app-standard-release.apk "dist/LiteLauncher-${TAG}-standard-release.apk"
+          fi
           ls -lh dist/
 
       - name: Upload Build Artifact
@@ -72,23 +102,40 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           TAG: ${{ steps.prep.outputs.tag }}
+          BASE_VER: ${{ steps.prep.outputs.base_ver }}
+          IS_PLAYPROTECT: ${{ steps.prep.outputs.is_playprotect }}
         run: |
-          cat <<'EOF' > release_notes.md
+          if [[ "$IS_PLAYPROTECT" == "true" ]]; then
+            RELEASE_TITLE="PlayProtect (LiteLauncher ${BASE_VER})"
+            cat <<'EOF' > release_notes.md
+          ## PlayProtect (LiteLauncher __BASE_VER__)
+
+          This **PlayProtect** build completely removes `BIND_ACCESSIBILITY_SERVICE` and `MyAccessibilityService` from the APK manifest, resources, and bytecode so **Google Play Protect Enhanced Fraud Protection** allows direct installation without blocking.
+
+          ### Downloads
+          - **LiteLauncher-PlayProtect-__BASE_VER__-release.apk** *(Recommended)*: Signed, R8-optimized PlayProtect release build (`app.litelauncher`).
+          - **LiteLauncher-PlayProtect-__BASE_VER__-debug.apk**: PlayProtect debug build (`app.litelauncher.debug`, installs side-by-side).
+
+          ### Behavior Differences in PlayProtect Edition
+          - **Double-tap to lock** uses `DeviceAdmin` instead of Accessibility Service (unlocking afterward uses PIN/pattern on Android 9+, or you can use the phone's power button).
+          - Includes all stability & performance fixes from `v6.6.18` (main-thread I/O offloading, `DeviceAdmin` receiver fixes, contact search deduplication, `AppDrawerAdapter` fixes, `SharedPreferences` safety).
+          EOF
+            sed -i "s/__BASE_VER__/${BASE_VER}/g" release_notes.md
+          else
+            RELEASE_TITLE="LiteLauncher ${TAG}"
+            cat <<'EOF' > release_notes.md
           ## LiteLauncher __TAG__
 
           ### Downloads
-          - **LiteLauncher-__TAG__-release.apk** *(Recommended)*: Signed, R8-optimized release build (`app.litelauncher`).
-          - **LiteLauncher-__TAG__-debug.apk**: Debug build (`app.litelauncher.debug`, installs side-by-side).
-
-          ### Changes in __TAG__
-          - Fixed double-tap-to-lock accessibility service configuration for `app.litelauncher`.
-          - Fixed `DeviceAdmin` receiver overrides and `SharedPreferences` string-set safety.
-          - Improved contact search scoping/deduplication and fixed `AppDrawerAdapter` list diffing & `TextWatcher` leak.
-          - Moved Screen Time aggregation, home-screen package checks, and cache cleanup off the main UI thread.
+          - **LiteLauncher-__TAG__-standard-release.apk**: Signed standard release build (`app.litelauncher`, includes Accessibility Service for fingerprint-friendly Double-tap to lock).
+          - **LiteLauncher-PlayProtect-__TAG__-release.apk**: Signed PlayProtect release build (`app.litelauncher`, Accessibility Service removed to satisfy Google Play Protect Enhanced Fraud Protection).
+          - **LiteLauncher-PlayProtect-__TAG__-debug.apk**: PlayProtect debug build (`app.litelauncher.debug`, installs side-by-side).
           EOF
-          sed -i "s/__TAG__/${TAG}/g" release_notes.md
+            sed -i "s/__TAG__/${TAG}/g" release_notes.md
+          fi
           if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" --title "$RELEASE_TITLE" --notes-file release_notes.md
             gh release upload "$TAG" dist/*.apk --clobber
           else
-            gh release create "$TAG" dist/*.apk --title "LiteLauncher ${TAG}" --notes-file release_notes.md
+            gh release create "$TAG" dist/*.apk --title "$RELEASE_TITLE" --notes-file release_notes.md
           fi
