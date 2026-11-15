@@ -95,7 +95,6 @@
     <string name="accept">Accetta</string>
     <string name="permission">Autorizza</string>
     <string name="double_tap_lock">Tocca due volte per bloccare</string>
-    <string name="home_button_show_recents">Tasto Home per i recenti</string>
     <string name="enable">Abilita</string>
     <string name="disable">disattiva</string>
     <string name="not_working"><u>Problemi?</u></string>

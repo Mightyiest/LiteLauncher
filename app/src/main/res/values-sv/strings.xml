@@ -93,7 +93,6 @@
     <string name="accept">Godkänn</string>
     <string name="permission">Behörighet</string>
     <string name="double_tap_lock">Dubbeltryck för att låsa</string>
-    <string name="home_button_show_recents">Hemknapp för senaste appar</string>
     <string name="enable">Aktivera</string>
     <string name="disable">Inaktivera</string>
     <string name="not_working"><u>Fungerar inte?</u></string>

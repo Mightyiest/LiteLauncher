@@ -93,7 +93,6 @@
     <string name="accept">Aceptar</string>
     <string name="permission">Permiso</string>
     <string name="double_tap_lock">Tocar dos veces para bloquear</string>
-    <string name="home_button_show_recents">Botón de inicio para recientes</string>
     <string name="enable">Habilitar</string>
     <string name="disable">Inutilizar</string>
     <string name="not_working"><u>¿No funciona?</u></string>

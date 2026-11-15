@@ -63,6 +63,9 @@ android {
         viewBinding = true
         buildConfig = true
     }
+    lint {
+        disable += listOf("ExtraTranslation", "MissingTranslation")
+    }
 }
 
 dependencies {

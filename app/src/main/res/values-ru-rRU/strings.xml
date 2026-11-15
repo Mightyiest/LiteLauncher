@@ -95,7 +95,6 @@
     <string name="accept">Принять</string>
     <string name="permission">Разрешение</string>
     <string name="double_tap_lock">Блокировка двойным касанием</string>
-    <string name="home_button_show_recents">Кнопка домой для недавних</string>
     <string name="enable">Включить</string>
     <string name="disable">Выключить</string>
     <string name="not_working"><u>Не работает?</u></string>

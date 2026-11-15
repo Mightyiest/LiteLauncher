@@ -97,7 +97,6 @@
     <string name="accept">Elfogad</string>
     <string name="permission">Engedély</string>
     <string name="double_tap_lock">Dupla koppintás a lezáráshoz</string>
-    <string name="home_button_show_recents">Kezdőlap gomb a legutóbbiakhoz</string>
     <string name="enable">Engedélyezés</string>
     <string name="disable">Letiltás</string>
     <string name="not_working"><u>Nem működik?</u></string>

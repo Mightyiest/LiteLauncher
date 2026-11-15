@@ -33,7 +33,6 @@
     <string name="accept">يقبل</string>
     <string name="permission">إذن</string>
     <string name="double_tap_lock">النقر المزدوج للقفل</string>
-    <string name="home_button_show_recents">زر الرئيسية للتطبيقات الأخيرة</string>
     <string name="enable">تشغيل</string>
     <string name="disable">إيقاف</string>
     <string name="not_working">لا يعمل؟</string>

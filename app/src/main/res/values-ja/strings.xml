@@ -32,7 +32,6 @@
     <string name="accept">受け入れる</string>
     <string name="permission">許可</string>
     <string name="double_tap_lock">ダブルタップしてロックします</string>
-    <string name="home_button_show_recents">ホームボタンで最近のアプリ</string>
     <string name="enable">有効</string>
     <string name="disable">無効にする</string>
     <string name="not_working"><u>機能しない場合</u></string>
