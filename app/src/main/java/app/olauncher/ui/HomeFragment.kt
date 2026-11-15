@@ -1,5 +1,6 @@
 package app.olauncher.ui
 
+import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.Context
 import android.content.Intent
@@ -16,6 +17,7 @@ import android.view.WindowInsets
 import android.widget.FrameLayout
 import android.widget.TextView
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.bundleOf
@@ -33,6 +35,8 @@ import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.databinding.FragmentHomeBinding
+import app.olauncher.helper.FontHelper
+import app.olauncher.helper.WeatherHelper
 import app.olauncher.helper.appUsagePermissionGranted
 import app.olauncher.helper.dpToPx
 import app.olauncher.helper.expandNotificationDrawer
@@ -62,6 +66,19 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private lateinit var viewModel: MainViewModel
     private lateinit var deviceManager: DevicePolicyManager
     private var verifyHomeAppsJob: Job? = null
+
+    private val requestWeatherPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.suppressBackToHome = false
+        if (granted) {
+            viewModel.refreshWeather(force = true) { ok ->
+                if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))
+            }
+        } else {
+            populateWeather()
+        }
+    }
 
     private var _binding: FragmentHomeBinding? = null
     private val binding get() = _binding!!
@@ -97,6 +114,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     override fun onResume() {
         super.onResume()
         populateHomeScreen(false)
+        applyHomeFont()
         viewModel.isOlauncherDefault()
         if (prefs.showStatusBar) showStatusBar()
         else hideStatusBar()
@@ -109,6 +127,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             // R.id.recents -> {}
             R.id.clock -> openClockApp()
             R.id.date -> openCalendarApp()
+            R.id.tvWeather -> onWeatherClick()
             R.id.setDefaultLauncher -> viewModel.resetLauncherLiveData.call()
             R.id.tvScreenTime -> openScreenTimeDigitalWellbeing()
 
@@ -178,6 +197,14 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 prefs.screenTimeAppUser = ""
             }
 
+            R.id.tvWeather -> {
+                try {
+                    findNavController().navigate(R.id.action_mainFragment_to_settingsFragment)
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                }
+            }
+
             R.id.setDefaultLauncher -> {
                 prefs.hideSetDefaultLauncher = true
                 binding.setDefaultLauncher.visibility = View.GONE
@@ -220,6 +247,19 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         viewModel.screenTimeValue.observe(viewLifecycleOwner) {
             it?.let { binding.tvScreenTime.text = it }
         }
+        viewModel.weatherValue.observe(viewLifecycleOwner) {
+            if (prefs.weatherMode == Constants.WeatherMode.OFF) {
+                binding.tvWeather.isVisible = false
+            } else {
+                binding.tvWeather.isVisible = true
+                if (!it.isNullOrBlank()) {
+                    binding.tvWeather.text = it
+                }
+            }
+        }
+        viewModel.refreshFont.observe(viewLifecycleOwner) {
+            applyHomeFont()
+        }
         // Home button for recents feature disabled
         // viewModel.showRecentApps.observe(viewLifecycleOwner) {
         //     binding.recents.performClick()
@@ -245,6 +285,8 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         // binding.recents.setOnClickListener(this)
         binding.clock.setOnClickListener(this)
         binding.date.setOnClickListener(this)
+        binding.tvWeather.setOnClickListener(this)
+        binding.tvWeather.setOnLongClickListener(this)
         binding.clock.setOnLongClickListener(this)
         binding.date.setOnLongClickListener(this)
         binding.setDefaultLauncher.setOnClickListener(this)
@@ -257,6 +299,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         val verticalGravity = if (prefs.homeBottomAlignment) Gravity.BOTTOM else Gravity.CENTER_VERTICAL
         binding.homeAppsLayout.gravity = horizontalGravity or verticalGravity
         binding.dateTimeLayout.gravity = horizontalGravity
+        binding.tvWeather.gravity = horizontalGravity
         binding.homeApp1.gravity = horizontalGravity
         binding.homeApp2.gravity = horizontalGravity
         binding.homeApp3.gravity = horizontalGravity
@@ -267,8 +310,30 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         binding.homeApp8.gravity = horizontalGravity
     }
 
+    private fun applyHomeFont() {
+        FontHelper.applyFont(
+            prefs.fontFamily,
+            binding.clock,
+            binding.date,
+            binding.tvWeather,
+            binding.tvScreenTime,
+            binding.homeApp1,
+            binding.homeApp2,
+            binding.homeApp3,
+            binding.homeApp4,
+            binding.homeApp5,
+            binding.homeApp6,
+            binding.homeApp7,
+            binding.homeApp8,
+            binding.firstRunTips,
+            binding.setDefaultLauncher
+        )
+    }
+
     private fun populateDateTime() {
-        binding.dateTimeLayout.isVisible = prefs.dateTimeVisibility != Constants.DateTime.OFF
+        binding.dateTimeLayout.isVisible =
+            prefs.dateTimeVisibility != Constants.DateTime.OFF ||
+            prefs.weatherMode != Constants.WeatherMode.OFF
         binding.clock.isVisible = Constants.DateTime.isTimeVisible(prefs.dateTimeVisibility)
         binding.date.isVisible = Constants.DateTime.isDateVisible(prefs.dateTimeVisibility)
 
@@ -283,6 +348,33 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
                 dateText = getString(R.string.day_battery, dateText, battery)
         }
         binding.date.text = dateText.replace(".,", ",")
+        populateWeather()
+    }
+
+    private fun populateWeather() {
+        if (prefs.weatherMode == Constants.WeatherMode.OFF) {
+            binding.tvWeather.isVisible = false
+            return
+        }
+        binding.tvWeather.isVisible = true
+        if (!WeatherHelper.hasWeatherLocationPermission(requireContext())) {
+            binding.tvWeather.text = getString(R.string.tap_for_local_weather)
+            return
+        }
+        binding.tvWeather.text = prefs.cachedWeatherText.ifBlank { "\u2026" }
+        viewModel.refreshWeather(force = false)
+    }
+
+    private fun onWeatherClick() {
+        if (!WeatherHelper.hasWeatherLocationPermission(requireContext())) {
+            viewModel.suppressBackToHome = true
+            requestWeatherPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+        } else {
+            requireContext().showToast(getString(R.string.refreshing_weather))
+            viewModel.refreshWeather(force = true) { ok ->
+                if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))
+            }
+        }
     }
 
     @RequiresApi(Build.VERSION_CODES.Q)

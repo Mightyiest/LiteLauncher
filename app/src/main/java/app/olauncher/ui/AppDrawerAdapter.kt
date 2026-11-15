@@ -27,6 +27,7 @@ import app.olauncher.databinding.AdapterAppDrawerBinding
 import app.olauncher.databinding.AdapterPrivateSpaceHeaderBinding
 import app.olauncher.databinding.AdapterContactHeaderBinding
 import app.olauncher.databinding.AdapterContactBinding
+import app.olauncher.helper.FontHelper
 import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.isSystemApp
 import app.olauncher.helper.showKeyboard
@@ -36,6 +37,8 @@ class AppDrawerAdapter(
     context: Context,
     private var flag: Int,
     private val appLabelGravity: Int,
+    private val fontFamily: String = Constants.FontFamily.LIGHT,
+    private val mindfulAppsProvider: () -> Set<String> = { emptySet() },
     private val appClickListener: (AppModel) -> Unit,
     private val appInfoListener: (AppModel) -> Unit,
     private val appDeleteListener: (AppModel) -> Unit,
@@ -126,32 +129,40 @@ class AppDrawerAdapter(
                 is PrivateSpaceHeaderViewHolder -> {
                     holder.bind(
                         appLabelGravity,
+                        fontFamily,
                         privateSpaceToggleListener,
                         privateSpaceSettingsListener,
                     )
                 }
 
                 is ContactHeaderViewHolder -> {
-                    holder.bind(appLabelGravity)
+                    holder.bind(appLabelGravity, fontFamily)
                 }
 
                 is ContactViewHolder -> {
                     if (appModel is AppModel.Contact) {
-                        holder.bind(appModel, appLabelGravity)
+                        holder.bind(appModel, appLabelGravity, fontFamily)
                     }
                 }
 
-                is ViewHolder -> holder.bind(
-                    flag,
-                    appLabelGravity,
-                    myUserHandle,
-                    appModel,
-                    appClickListener,
-                    appDeleteListener,
-                    appInfoListener,
-                    appHideListener,
-                    appRenameListener
-                )
+                is ViewHolder -> {
+                    val isMindfulSelected = flag == Constants.FLAG_MINDFUL_APPS &&
+                        appModel.appPackage.isNotEmpty() &&
+                        mindfulAppsProvider().contains(appModel.appPackage)
+                    holder.bind(
+                        flag,
+                        appLabelGravity,
+                        fontFamily,
+                        isMindfulSelected,
+                        myUserHandle,
+                        appModel,
+                        appClickListener,
+                        appDeleteListener,
+                        appInfoListener,
+                        appHideListener,
+                        appRenameListener
+                    )
+                }
             }
         } catch (e: Exception) {
             e.printStackTrace()
@@ -304,10 +315,12 @@ class AppDrawerAdapter(
         RecyclerView.ViewHolder(binding.root) {
         fun bind(
             appLabelGravity: Int,
+            fontFamily: String,
             toggleListener: () -> Unit,
             settingsListener: () -> Unit,
         ) = with(binding) {
             privateSpaceTitle.gravity = appLabelGravity
+            privateSpaceTitle.typeface = FontHelper.getTypeface(fontFamily)
             privateSpaceTitle.setOnClickListener { toggleListener() }
             privateSpaceTitle.setOnLongClickListener {
                 settingsListener()
@@ -318,20 +331,22 @@ class AppDrawerAdapter(
 
     class ContactHeaderViewHolder(private val binding: AdapterContactHeaderBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        fun bind(appLabelGravity: Int) {
+        fun bind(appLabelGravity: Int, fontFamily: String) {
             binding.contactHeaderTitle.gravity = appLabelGravity
+            binding.contactHeaderTitle.typeface = FontHelper.getTypeface(fontFamily)
         }
     }
 
     class ContactViewHolder(private val binding: AdapterContactBinding) :
         RecyclerView.ViewHolder(binding.root) {
-        fun bind(contact: AppModel.Contact, appLabelGravity: Int) = with(binding) {
+        fun bind(contact: AppModel.Contact, appLabelGravity: Int, fontFamily: String) = with(binding) {
             contactTitle.text = if (contact.showNumber) {
                 "📞 ${contact.appLabel} (${contact.phoneNumber})"
             } else {
                 "📞 ${contact.appLabel}"
             }
             contactTitle.gravity = appLabelGravity
+            contactTitle.typeface = FontHelper.getTypeface(fontFamily)
             contactTitle.setOnClickListener {
                 try {
                     val intent = Intent(Intent.ACTION_DIAL, Uri.parse("tel:${contact.phoneNumber}")).apply {
@@ -372,6 +387,8 @@ class AppDrawerAdapter(
         fun bind(
             flag: Int,
             appLabelGravity: Int,
+            fontFamily: String,
+            isMindfulSelected: Boolean,
             myUserHandle: UserHandle,
             appModel: AppModel,
             clickListener: (AppModel) -> Unit,
@@ -389,14 +406,17 @@ class AppDrawerAdapter(
             appTitle.text = buildString {
                 append(appModel.appLabel)
                 if (appModel.isNew) append(" ✦")
+                if (isMindfulSelected) append(" \u23F3")
             }
+            appTitle.typeface = FontHelper.getTypeface(fontFamily, bold = isMindfulSelected)
+            etAppRename.typeface = FontHelper.getTypeface(fontFamily)
             appTitle.gravity = appLabelGravity
             otherProfileIndicator.isVisible = appModel.user != myUserHandle
 
             appTitle.setOnClickListener { clickListener(appModel) }
 
             appTitle.setOnLongClickListener {
-                if (appModel.appPackage.isNotEmpty()) {
+                if (flag != Constants.FLAG_MINDFUL_APPS && appModel.appPackage.isNotEmpty()) {
                     appDelete.alpha = when (
                         appModel is AppModel.PinnedShortcut || !root.context.isSystemApp(appModel.appPackage, appModel.user)
                     ) {

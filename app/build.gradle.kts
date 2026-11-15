@@ -22,8 +22,8 @@ android {
         applicationId = "app.litelauncher"
         minSdk = 24
         targetSdk = 35
-        versionCode = 110
-        versionName = "v6.6.19"
+        versionCode = 111
+        versionName = "v6.6.20"
 
         resourceConfigurations.addAll(listOf("en", "ar", "de", "es-rES", "es-rUS", "fr", "he", "hr", "hu", "in", "it", "ja", "nl", "pl", "pt-rBR", "ru-rRU", "sv", "tr", "uk", "zh"))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -88,6 +88,7 @@ dependencies {
     implementation(libs.kotlin.stdlib)
     implementation(libs.core.ktx)
     implementation(libs.appcompat)
+    implementation(libs.biometric)
     implementation(libs.recyclerview)
 
     // Android lifecycle

@@ -23,6 +23,7 @@ import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.databinding.FragmentAppDrawerBinding
+import app.olauncher.helper.FontHelper
 import app.olauncher.helper.deletePinnedShortcut
 import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.isEinkDisplay
@@ -97,11 +98,18 @@ class AppDrawerFragment : Fragment() {
     private fun initViews() {
         if (flag == Constants.FLAG_HIDDEN_APPS)
             binding.search.queryHint = getString(R.string.hidden_apps)
+        else if (flag == Constants.FLAG_MINDFUL_APPS)
+            binding.search.queryHint = getString(R.string.select_mindful_apps)
         else if (flag in Constants.FLAG_SET_HOME_APP_1..Constants.FLAG_SET_SCREEN_TIME_APP)
             binding.search.queryHint = "Please select an app"
         try {
+            val fontTypeface = FontHelper.getTypeface(prefs.fontFamily)
             val searchTextView = binding.search.findViewById<TextView>(R.id.search_src_text)
-            if (searchTextView != null) searchTextView.gravity = prefs.appLabelAlignment
+            if (searchTextView != null) {
+                searchTextView.gravity = prefs.appLabelAlignment
+                searchTextView.typeface = fontTypeface
+            }
+            binding.appRename.typeface = fontTypeface
         } catch (e: Exception) {
             e.printStackTrace()
         }
@@ -152,7 +160,26 @@ class AppDrawerFragment : Fragment() {
             requireContext(),
             flag,
             prefs.appLabelAlignment,
+            fontFamily = prefs.fontFamily,
+            mindfulAppsProvider = { prefs.mindfulApps },
             appClickListener = { appModel ->
+                if (flag == Constants.FLAG_MINDFUL_APPS) {
+                    if (appModel is AppModel.App && appModel.appPackage.isNotBlank()) {
+                        val updated = prefs.mindfulApps
+                        val added = if (updated.contains(appModel.appPackage)) {
+                            updated.remove(appModel.appPackage)
+                            false
+                        } else {
+                            updated.add(appModel.appPackage)
+                            true
+                        }
+                        prefs.mindfulApps = updated
+                        adapter.notifyDataSetChanged()
+                        val msgRes = if (added) R.string.mindful_added else R.string.mindful_removed
+                        requireContext().showToast(getString(msgRes, appModel.appLabel))
+                    }
+                    return@AppDrawerAdapter
+                }
                 viewModel.selectedApp(appModel, flag)
                 if (flag == Constants.FLAG_LAUNCH_APP || flag == Constants.FLAG_HIDDEN_APPS)
                     findNavController().popBackStack(R.id.mainFragment, false)

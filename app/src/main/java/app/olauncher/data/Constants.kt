@@ -65,8 +65,25 @@ object Constants {
 //    const val THEME_MODE_LIGHT = 1
 //    const val THEME_MODE_SYSTEM = 2
 
+    object WeatherMode {
+        const val OFF = 0
+        const val CELSIUS = 1
+        const val FAHRENHEIT = 2
+    }
+
+    object FontFamily {
+        const val LIGHT = "sans-serif-light"
+        const val SYSTEM = "sans-serif"
+        const val MONOSPACE = "monospace"
+        const val SERIF = "serif"
+        const val CONDENSED = "sans-serif-condensed"
+    }
+
+    const val MINDFUL_PAUSE_SECONDS = 4
+
     const val FLAG_LAUNCH_APP = 100
     const val FLAG_HIDDEN_APPS = 101
+    const val FLAG_MINDFUL_APPS = 102
 
     const val FLAG_SET_HOME_APP_1 = 1
     const val FLAG_SET_HOME_APP_2 = 2

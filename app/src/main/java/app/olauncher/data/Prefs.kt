@@ -6,6 +6,8 @@ import android.os.UserHandle
 import android.view.Gravity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.content.edit
+import org.json.JSONArray
+import org.json.JSONObject
 
 class Prefs(context: Context) {
     private val PREFS_FILENAME = "app.olauncher"
@@ -43,6 +45,14 @@ class Prefs(context: Context) {
     private val SCREEN_TIME_LAST_UPDATED = "SCREEN_TIME_LAST_UPDATED"
     private val LAUNCHER_RESTART_TIMESTAMP = "LAUNCHER_RECREATE_TIMESTAMP"
     private val SHOWN_ON_DAY_OF_YEAR = "SHOWN_ON_DAY_OF_YEAR"
+    private val WEATHER_MODE = "WEATHER_MODE"
+    private val CACHED_WEATHER_TEXT = "CACHED_WEATHER_TEXT"
+    private val WEATHER_LAST_UPDATED = "WEATHER_LAST_UPDATED"
+    private val LAST_WEATHER_LAT = "LAST_WEATHER_LAT"
+    private val LAST_WEATHER_LON = "LAST_WEATHER_LON"
+    private val FONT_FAMILY = "FONT_FAMILY"
+    private val LOCK_HIDDEN_APPS = "LOCK_HIDDEN_APPS"
+    private val MINDFUL_APPS = "MINDFUL_APPS"
     // Home button for recents feature disabled
     // private val HOME_BUTTON_SHOW_RECENTS = "HOME_BUTTON_SHOW_RECENTS"
 
@@ -682,6 +692,121 @@ class Prefs(context: Context) {
         prefs.edit {
             putString(nameKey, "")
             putString(packageKey, "")
+        }
+    }
+
+    var weatherMode: Int
+        get() = prefs.getInt(WEATHER_MODE, Constants.WeatherMode.CELSIUS)
+        set(value) = prefs.edit { putInt(WEATHER_MODE, value) }
+
+    var cachedWeatherText: String
+        get() = prefs.getString(CACHED_WEATHER_TEXT, "") ?: ""
+        set(value) = prefs.edit { putString(CACHED_WEATHER_TEXT, value) }
+
+    var weatherLastUpdated: Long
+        get() = prefs.getLong(WEATHER_LAST_UPDATED, 0L)
+        set(value) = prefs.edit { putLong(WEATHER_LAST_UPDATED, value) }
+
+    var lastWeatherLat: Float
+        get() = prefs.getFloat(LAST_WEATHER_LAT, Float.NaN)
+        set(value) = prefs.edit { putFloat(LAST_WEATHER_LAT, value) }
+
+    var lastWeatherLon: Float
+        get() = prefs.getFloat(LAST_WEATHER_LON, Float.NaN)
+        set(value) = prefs.edit { putFloat(LAST_WEATHER_LON, value) }
+
+    var fontFamily: String
+        get() = prefs.getString(FONT_FAMILY, Constants.FontFamily.LIGHT) ?: Constants.FontFamily.LIGHT
+        set(value) = prefs.edit { putString(FONT_FAMILY, value) }
+
+    var lockHiddenApps: Boolean
+        get() = prefs.getBoolean(LOCK_HIDDEN_APPS, false)
+        set(value) = prefs.edit { putBoolean(LOCK_HIDDEN_APPS, value) }
+
+    var mindfulApps: MutableSet<String>
+        get() = (prefs.getStringSet(MINDFUL_APPS, emptySet()) ?: emptySet()).toMutableSet()
+        set(value) = prefs.edit { putStringSet(MINDFUL_APPS, value.toSet()) }
+
+    fun exportToJson(): String {
+        val transientKeys = setOf(
+            LAUNCHER_RESTART_TIMESTAMP,
+            SCREEN_TIME_LAST_UPDATED,
+            WEATHER_LAST_UPDATED
+        )
+        val booleans = JSONObject()
+        val ints = JSONObject()
+        val longs = JSONObject()
+        val floats = JSONObject()
+        val strings = JSONObject()
+        val stringSets = JSONObject()
+
+        for ((key, value) in prefs.all) {
+            if (key in transientKeys) continue
+            when (value) {
+                is Boolean -> booleans.put(key, value)
+                is Int -> ints.put(key, value)
+                is Long -> longs.put(key, value)
+                is Float -> if (!value.isNaN() && !value.isInfinite()) floats.put(key, value.toDouble())
+                is String -> strings.put(key, value)
+                is Set<*> -> {
+                    val arr = JSONArray()
+                    value.filterIsInstance<String>().forEach { arr.put(it) }
+                    stringSets.put(key, arr)
+                }
+            }
+        }
+
+        return JSONObject().apply {
+            put("schema", "litelauncher_backup_v1")
+            put("exportedAt", System.currentTimeMillis())
+            put("booleans", booleans)
+            put("ints", ints)
+            put("longs", longs)
+            put("floats", floats)
+            put("strings", strings)
+            put("stringSets", stringSets)
+        }.toString(2)
+    }
+
+    fun importFromJson(jsonString: String): Boolean {
+        return try {
+            val root = JSONObject(jsonString)
+            if (root.optString("schema") != "litelauncher_backup_v1") return false
+
+            prefs.edit {
+                clear()
+                root.optJSONObject("booleans")?.let { obj ->
+                    obj.keys().forEach { key -> putBoolean(key, obj.getBoolean(key)) }
+                }
+                root.optJSONObject("ints")?.let { obj ->
+                    obj.keys().forEach { key -> putInt(key, obj.getInt(key)) }
+                }
+                root.optJSONObject("longs")?.let { obj ->
+                    obj.keys().forEach { key -> putLong(key, obj.getLong(key)) }
+                }
+                root.optJSONObject("floats")?.let { obj ->
+                    obj.keys().forEach { key -> putFloat(key, obj.getDouble(key).toFloat()) }
+                }
+                root.optJSONObject("strings")?.let { obj ->
+                    obj.keys().forEach { key -> putString(key, obj.getString(key)) }
+                }
+                root.optJSONObject("stringSets")?.let { obj ->
+                    obj.keys().forEach { key ->
+                        val arr = obj.getJSONArray(key)
+                        val set = mutableSetOf<String>()
+                        for (i in 0 until arr.length()) {
+                            set.add(arr.getString(i))
+                        }
+                        putStringSet(key, set)
+                    }
+                }
+                putBoolean(FIRST_OPEN, false)
+                putBoolean(FIRST_SETTINGS_OPEN, false)
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            false
         }
     }
 }

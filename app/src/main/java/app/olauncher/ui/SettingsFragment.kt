@@ -1,5 +1,6 @@
 package app.olauncher.ui
 
+import android.Manifest
 import android.app.admin.DevicePolicyManager
 import android.content.ComponentName
 import android.content.Context
@@ -14,6 +15,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.os.bundleOf
 import androidx.core.view.isVisible
@@ -26,6 +28,9 @@ import app.olauncher.R
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.databinding.FragmentSettingsBinding
+import app.olauncher.helper.BiometricAuthHelper
+import app.olauncher.helper.FontHelper
+import app.olauncher.helper.WeatherHelper
 import app.olauncher.helper.animateAlpha
 import app.olauncher.helper.appUsagePermissionGranted
 import app.olauncher.helper.getColorFromAttr
@@ -42,6 +47,9 @@ import app.olauncher.helper.setPlainWallpaper
 import app.olauncher.helper.shareApp
 import app.olauncher.helper.showToast
 import app.olauncher.listener.DeviceAdmin
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListener {
 
@@ -54,6 +62,62 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
     private val binding get() = _binding!!
     private val showPentastic = System.currentTimeMillis() % 2 == 0L
     private var showInstagram = false
+
+    private val requestWeatherPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        viewModel.suppressBackToHome = false
+        if (granted) {
+            prefs.weatherLastUpdated = 0L
+            viewModel.refreshWeather(force = true) { ok ->
+                if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))
+            }
+        } else if (isAdded) {
+            prefs.weatherMode = Constants.WeatherMode.OFF
+            populateWeatherSetting()
+            requireContext().showToast(getString(R.string.weather_unavailable))
+        }
+    }
+
+    private val exportBackupLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        viewModel.suppressBackToHome = false
+        if (uri == null || !isAdded) return@registerForActivityResult
+        try {
+            val json = prefs.exportToJson()
+            requireContext().contentResolver.openOutputStream(uri)?.use { stream ->
+                stream.write(json.toByteArray(Charsets.UTF_8))
+            }
+            requireContext().showToast(getString(R.string.backup_exported))
+        } catch (e: Exception) {
+            e.printStackTrace()
+            requireContext().showToast(getString(R.string.backup_invalid))
+        }
+    }
+
+    private val importBackupLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        viewModel.suppressBackToHome = false
+        if (uri == null || !isAdded) return@registerForActivityResult
+        try {
+            val json = requireContext().contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            if (!json.isNullOrBlank() && prefs.importFromJson(json)) {
+                requireContext().showToast(getString(R.string.backup_restored))
+                viewModel.getAppList()
+                viewModel.getHiddenApps()
+                viewModel.refreshHome(true)
+                viewModel.refreshFont.postValue(prefs.fontFamily)
+                requireActivity().recreate()
+            } else {
+                requireContext().showToast(getString(R.string.backup_invalid))
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+            requireContext().showToast(getString(R.string.backup_invalid))
+        }
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         _binding = FragmentSettingsBinding.inflate(inflater, container, false)
@@ -85,6 +149,10 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         populateAlignment()
         populateStatusBar()
         populateDateTime()
+        populateWeatherSetting()
+        populateFontSetting()
+        populateMindfulAppsCount()
+        populateLockHiddenApps()
         populateSwipeApps()
         populateSwipeDownAction()
         populateActionHints()
@@ -101,11 +169,17 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         super.onResume()
         checkAdminPermission()
         populateLockSettings()
+        populateWeatherSetting()
+        populateFontSetting()
+        populateMindfulAppsCount()
+        populateLockHiddenApps()
     }
 
     override fun onClick(view: View) {
         binding.appsNumSelectLayout.visibility = View.GONE
         binding.dateTimeSelectLayout.visibility = View.GONE
+        binding.weatherSelectLayout.visibility = View.GONE
+        binding.fontSelectLayout.visibility = View.GONE
         binding.appThemeSelectLayout.visibility = View.GONE
         binding.swipeDownSelectLayout.visibility = View.GONE
         if (view.id != R.id.textSizeMinus && view.id != R.id.textSizePlus) {
@@ -140,6 +214,20 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
             R.id.dateTimeOn -> toggleDateTime(Constants.DateTime.ON)
             R.id.dateTimeOff -> toggleDateTime(Constants.DateTime.OFF)
             R.id.dateOnly -> toggleDateTime(Constants.DateTime.DATE_ONLY)
+            R.id.weatherValue -> binding.weatherSelectLayout.visibility = View.VISIBLE
+            R.id.weatherOff -> updateWeatherMode(Constants.WeatherMode.OFF)
+            R.id.weatherCelsius -> updateWeatherMode(Constants.WeatherMode.CELSIUS)
+            R.id.weatherFahrenheit -> updateWeatherMode(Constants.WeatherMode.FAHRENHEIT)
+            R.id.fontValue -> binding.fontSelectLayout.visibility = View.VISIBLE
+            R.id.fontLight -> updateFontFamily(Constants.FontFamily.LIGHT)
+            R.id.fontSystem -> updateFontFamily(Constants.FontFamily.SYSTEM)
+            R.id.fontMono -> updateFontFamily(Constants.FontFamily.MONOSPACE)
+            R.id.fontSerif -> updateFontFamily(Constants.FontFamily.SERIF)
+            R.id.fontCondensed -> updateFontFamily(Constants.FontFamily.CONDENSED)
+            R.id.mindfulAppsRow, R.id.mindfulAppsValue -> openMindfulAppsPicker()
+            R.id.lockHiddenAppsToggle -> toggleLockHiddenApps()
+            R.id.exportBackup -> onExportBackupClicked()
+            R.id.importBackup -> onImportBackupClicked()
             R.id.appThemeText -> binding.appThemeSelectLayout.visibility = View.VISIBLE
             R.id.themeLight -> updateTheme(AppCompatDelegate.MODE_NIGHT_NO)
             R.id.themeDark -> updateTheme(AppCompatDelegate.MODE_NIGHT_YES)
@@ -280,6 +368,24 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         binding.textSizeMinus.setOnClickListener(this)
         binding.textSizePlus.setOnClickListener(this)
 
+        binding.weatherValue.setOnClickListener(this)
+        binding.weatherOff.setOnClickListener(this)
+        binding.weatherCelsius.setOnClickListener(this)
+        binding.weatherFahrenheit.setOnClickListener(this)
+
+        binding.fontValue.setOnClickListener(this)
+        binding.fontLight.setOnClickListener(this)
+        binding.fontSystem.setOnClickListener(this)
+        binding.fontMono.setOnClickListener(this)
+        binding.fontSerif.setOnClickListener(this)
+        binding.fontCondensed.setOnClickListener(this)
+
+        binding.mindfulAppsRow.setOnClickListener(this)
+        binding.mindfulAppsValue.setOnClickListener(this)
+        binding.lockHiddenAppsToggle.setOnClickListener(this)
+        binding.exportBackup.setOnClickListener(this)
+        binding.importBackup.setOnClickListener(this)
+
         binding.dailyWallpaper.setOnLongClickListener(this)
         binding.alignment.setOnLongClickListener(this)
         binding.appThemeText.setOnLongClickListener(this)
@@ -386,6 +492,21 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
             requireContext().showToast(getString(R.string.no_hidden_apps))
             return
         }
+        if (prefs.lockHiddenApps && BiometricAuthHelper.isDeviceSecure(requireContext())) {
+            BiometricAuthHelper.authenticate(
+                fragment = this,
+                title = getString(R.string.unlock_hidden_apps),
+                subtitle = getString(R.string.unlock_to_continue),
+                onStart = { viewModel.suppressBackToHome = true },
+                onSuccess = { openHiddenAppsList() },
+                onFinish = { viewModel.suppressBackToHome = false }
+            )
+            return
+        }
+        openHiddenAppsList()
+    }
+
+    private fun openHiddenAppsList() {
         viewModel.getHiddenApps()
         findNavController().navigate(
             R.id.action_settingsFragment_to_appListFragment,
@@ -692,6 +813,150 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         if (prefs.proMessageShown.not() && prefs.userState == Constants.UserState.SHARE) {
             prefs.proMessageShown = true
             viewModel.showDialog.postValue(Constants.Dialog.PRO_MESSAGE)
+        }
+    }
+
+    private fun updateWeatherMode(mode: Int) {
+        prefs.weatherMode = mode
+        populateWeatherSetting()
+        if (mode == Constants.WeatherMode.OFF) {
+            prefs.cachedWeatherText = ""
+            prefs.weatherLastUpdated = 0L
+            viewModel.weatherValue.postValue("")
+            return
+        }
+        if (WeatherHelper.hasWeatherLocationPermission(requireContext())) {
+            prefs.weatherLastUpdated = 0L
+            viewModel.refreshWeather(force = true) { ok ->
+                if (!ok && isAdded) requireContext().showToast(getString(R.string.weather_unavailable))
+            }
+        } else {
+            viewModel.suppressBackToHome = true
+            try {
+                requestWeatherPermissionLauncher.launch(Manifest.permission.ACCESS_COARSE_LOCATION)
+            } catch (e: Exception) {
+                viewModel.suppressBackToHome = false
+                e.printStackTrace()
+            }
+        }
+    }
+
+    private fun populateWeatherSetting() {
+        binding.weatherValue.text = getString(
+            when (prefs.weatherMode) {
+                Constants.WeatherMode.CELSIUS -> R.string.celsius
+                Constants.WeatherMode.FAHRENHEIT -> R.string.fahrenheit
+                else -> R.string.off
+            }
+        )
+    }
+
+    private fun updateFontFamily(fontFamily: String) {
+        prefs.fontFamily = fontFamily
+        populateFontSetting()
+        viewModel.refreshFont.postValue(fontFamily)
+    }
+
+    private fun populateFontSetting() {
+        binding.fontValue.text = getString(
+            when (prefs.fontFamily) {
+                Constants.FontFamily.SYSTEM -> R.string.font_system
+                Constants.FontFamily.MONOSPACE -> R.string.font_mono
+                Constants.FontFamily.SERIF -> R.string.font_serif
+                Constants.FontFamily.CONDENSED -> R.string.font_condensed
+                else -> R.string.font_light
+            }
+        )
+        binding.fontValue.typeface = FontHelper.getTypeface(prefs.fontFamily)
+    }
+
+    private fun openMindfulAppsPicker() {
+        viewModel.getAppList()
+        findNavController().navigate(
+            R.id.action_settingsFragment_to_appListFragment,
+            bundleOf(Constants.Key.FLAG to Constants.FLAG_MINDFUL_APPS)
+        )
+    }
+
+    private fun populateMindfulAppsCount() {
+        binding.mindfulAppsValue.text = getString(R.string.mindful_apps_selected, prefs.mindfulApps.size)
+    }
+
+    private fun toggleLockHiddenApps() {
+        if (prefs.lockHiddenApps) {
+            if (BiometricAuthHelper.isDeviceSecure(requireContext())) {
+                BiometricAuthHelper.authenticate(
+                    fragment = this,
+                    title = getString(R.string.unlock_hidden_apps),
+                    subtitle = getString(R.string.unlock_to_continue),
+                    onStart = { viewModel.suppressBackToHome = true },
+                    onSuccess = {
+                        prefs.lockHiddenApps = false
+                        populateLockHiddenApps()
+                    },
+                    onFinish = { viewModel.suppressBackToHome = false }
+                )
+            } else {
+                prefs.lockHiddenApps = false
+                populateLockHiddenApps()
+            }
+            return
+        }
+        if (!BiometricAuthHelper.isDeviceSecure(requireContext())) {
+            requireContext().showToast(getString(R.string.set_screen_lock_first))
+            return
+        }
+        prefs.lockHiddenApps = true
+        populateLockHiddenApps()
+    }
+
+    private fun populateLockHiddenApps() {
+        binding.lockHiddenAppsToggle.text = getString(
+            if (prefs.lockHiddenApps) R.string.on else R.string.off
+        )
+    }
+
+    private fun onExportBackupClicked() {
+        if (prefs.lockHiddenApps && BiometricAuthHelper.isDeviceSecure(requireContext())) {
+            var authSucceeded = false
+            BiometricAuthHelper.authenticate(
+                fragment = this,
+                title = getString(R.string.unlock_hidden_apps),
+                subtitle = getString(R.string.unlock_to_continue),
+                onStart = { viewModel.suppressBackToHome = true },
+                onSuccess = {
+                    authSucceeded = true
+                    launchExportDocumentPicker()
+                },
+                onFinish = {
+                    if (!authSucceeded) viewModel.suppressBackToHome = false
+                }
+            )
+            return
+        }
+        launchExportDocumentPicker()
+    }
+
+    private fun launchExportDocumentPicker() {
+        val stamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+        viewModel.suppressBackToHome = true
+        try {
+            exportBackupLauncher.launch("litelauncher-backup-$stamp.json")
+        } catch (e: Exception) {
+            viewModel.suppressBackToHome = false
+            e.printStackTrace()
+            requireContext().showToast(getString(R.string.backup_invalid))
+        }
+    }
+
+    private fun onImportBackupClicked() {
+        viewModel.suppressBackToHome = true
+        try {
+            importBackupLauncher.launch(arrayOf("application/json", "text/plain", "*/*"))
+        } catch (e: Exception) {
+            viewModel.suppressBackToHome = false
+            e.printStackTrace()
+            requireContext().showToast(getString(R.string.backup_invalid))
         }
     }
 

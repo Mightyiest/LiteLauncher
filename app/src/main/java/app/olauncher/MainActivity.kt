@@ -16,6 +16,7 @@ import android.view.WindowManager.LayoutParams.FLAG_LAYOUT_NO_LIMITS
 import androidx.activity.OnBackPressedCallback
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
+import androidx.core.view.isVisible
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import androidx.navigation.NavController
@@ -23,6 +24,7 @@ import androidx.navigation.findNavController
 import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.databinding.ActivityMainBinding
+import app.olauncher.helper.FontHelper
 import app.olauncher.helper.getColorFromAttr
 import app.olauncher.helper.hasBeenDays
 import app.olauncher.helper.hasBeenHours
@@ -53,6 +55,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var viewModel: MainViewModel
     private lateinit var binding: ActivityMainBinding
     private var timerJob: Job? = null
+    private var mindfulCountdownJob: Job? = null
+    private var pendingMindfulLaunch: MainViewModel.PendingAppLaunch? = null
     private var isResumed = false
     private var profileReceiver: BroadcastReceiver? = null
 
@@ -81,6 +85,10 @@ class MainActivity : AppCompatActivity() {
 
         val onBackPressedCallback = object : OnBackPressedCallback(true) {
             override fun handleOnBackPressed() {
+                if (binding.mindfulPauseLayout.isVisible) {
+                    dismissMindfulPause()
+                    return
+                }
                 if (navController.currentDestination?.id != R.id.mainFragment) {
                     // then we might want to finish the activity or disable this callback.
                     if (navController.popBackStack()) {
@@ -134,6 +142,7 @@ class MainActivity : AppCompatActivity() {
         super.onResume()
         isResumed = true
         viewModel.isPrivateSpaceToggling = false
+        viewModel.suppressBackToHome = false
     }
 
     override fun onStop() {
@@ -169,6 +178,17 @@ class MainActivity : AppCompatActivity() {
     private fun initClickListeners() {
         binding.ivClose.setOnClickListener {
             binding.messageLayout.visibility = View.GONE
+        }
+        binding.tvMindfulStayFocused.setOnClickListener {
+            dismissMindfulPause()
+        }
+        binding.tvMindfulOpenAnyway.setOnClickListener {
+            if (!it.isEnabled) return@setOnClickListener
+            val pending = pendingMindfulLaunch
+            dismissMindfulPause()
+            if (pending != null) {
+                viewModel.confirmMindfulLaunch(pending)
+            }
         }
     }
 
@@ -252,6 +272,53 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+        viewModel.mindfulLaunchRequest.observe(this) { pending ->
+            pending?.let { showMindfulPause(it) }
+        }
+    }
+
+    private fun showMindfulPause(pending: MainViewModel.PendingAppLaunch) {
+        mindfulCountdownJob?.cancel()
+        pendingMindfulLaunch = pending
+
+        FontHelper.applyFont(
+            prefs.fontFamily,
+            binding.tvMindfulAppTitle,
+            binding.tvMindfulUsage,
+            binding.tvMindfulMessage,
+            binding.tvMindfulOpenAnyway,
+            binding.tvMindfulStayFocused
+        )
+        binding.tvMindfulAppTitle.text = pending.appLabel
+        binding.tvMindfulUsage.isVisible = false
+        binding.tvMindfulOpenAnyway.isEnabled = false
+        binding.tvMindfulOpenAnyway.alpha = 0.5f
+        binding.tvMindfulOpenAnyway.text = getString(R.string.wait_seconds, Constants.MINDFUL_PAUSE_SECONDS)
+        binding.mindfulPauseLayout.isVisible = true
+
+        mindfulCountdownJob = lifecycleScope.launch {
+            launch {
+                val usageText = viewModel.getTodayPackageUsageFormatted(pending.appModel.appPackage)
+                if (!usageText.isNullOrBlank() && binding.mindfulPauseLayout.isVisible) {
+                    binding.tvMindfulUsage.text = usageText
+                    binding.tvMindfulUsage.isVisible = true
+                }
+            }
+            for (remaining in Constants.MINDFUL_PAUSE_SECONDS downTo 1) {
+                binding.tvMindfulOpenAnyway.text = getString(R.string.wait_seconds, remaining)
+                delay(1_000L)
+            }
+            binding.tvMindfulOpenAnyway.isEnabled = true
+            binding.tvMindfulOpenAnyway.alpha = 1.0f
+            binding.tvMindfulOpenAnyway.text = getString(R.string.open_anyway)
+        }
+    }
+
+    private fun dismissMindfulPause() {
+        mindfulCountdownJob?.cancel()
+        mindfulCountdownJob = null
+        pendingMindfulLaunch = null
+        binding.mindfulPauseLayout.isVisible = false
     }
 
     private fun showMessageDialog(title: Int, message: Int, action: Int, clickListener: () -> Unit) {
@@ -328,7 +395,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun backToHomeScreen() {
-        if (viewModel.isPrivateSpaceToggling) return
+        if (viewModel.isPrivateSpaceToggling || viewModel.suppressBackToHome) return
+        dismissMindfulPause()
         binding.messageLayout.visibility = View.GONE
         if (navController.currentDestination?.id != R.id.mainFragment)
             navController.popBackStack(R.id.mainFragment, false)
@@ -375,6 +443,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        mindfulCountdownJob?.cancel()
         profileReceiver?.let {
             try {
                 unregisterReceiver(it)

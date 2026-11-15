@@ -8,6 +8,7 @@ import android.content.pm.LauncherApps
 import android.os.Build
 import android.os.UserHandle
 import android.os.UserManager
+import androidx.core.text.HtmlCompat
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.MutableLiveData
 import androidx.lifecycle.viewModelScope
@@ -22,6 +23,8 @@ import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.helper.SingleLiveEvent
 import app.olauncher.helper.WallpaperWorker
+import app.olauncher.helper.WeatherHelper
+import app.olauncher.helper.appUsagePermissionGranted
 import app.olauncher.helper.formattedTimeSpent
 import app.olauncher.helper.getAppsList
 import app.olauncher.helper.getPrivateSpaceApps
@@ -35,15 +38,19 @@ import app.olauncher.helper.usageStats.EventLogWrapper
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 import java.util.concurrent.TimeUnit
 
 
 class MainViewModel(application: Application) : AndroidViewModel(application) {
+    data class PendingAppLaunch(val appLabel: String, val appModel: AppModel)
+
     private val appContext by lazy { application.applicationContext }
     private val prefs = Prefs(appContext)
     private val eventLogWrapper by lazy { EventLogWrapper(appContext) }
     private var screenTimeJob: Job? = null
+    private var weatherJob: Job? = null
 
     val firstOpen = MutableLiveData<Boolean>()
     val refreshHome = MutableLiveData<Boolean>()
@@ -55,17 +62,21 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     val launcherResetFailed = MutableLiveData<Boolean>()
     val homeAppAlignment = MutableLiveData<Int>()
     val screenTimeValue = MutableLiveData<String>()
+    val weatherValue = MutableLiveData<String?>()
+    val refreshFont = MutableLiveData<String>()
 
     val privateSpaceApps = MutableLiveData<List<AppModel>?>()
     val privateSpaceLocked = MutableLiveData<Boolean>()
     val privateSpaceAvailable = MutableLiveData<Boolean>()
 
-    // Suppress backToHomeScreen during Private Space lock/unlock auth
+    // Suppress backToHomeScreen during Private Space lock/unlock auth or system pickers/prompts
     var isPrivateSpaceToggling = false
+    var suppressBackToHome = false
 
     val showDialog = SingleLiveEvent<String>()
     val checkForMessages = SingleLiveEvent<Unit?>()
     val resetLauncherLiveData = SingleLiveEvent<Unit?>()
+    val mindfulLaunchRequest = SingleLiveEvent<PendingAppLaunch>()
     // Home button for recents feature disabled
     // val showRecentApps = SingleLiveEvent<Unit?>()
 
@@ -74,9 +85,16 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         when (flag) {
             Constants.FLAG_LAUNCH_APP -> {
                 when (appModel) {
-                    is AppModel.PinnedShortcut -> launchShortcut(appModel)
-                    is AppModel.App ->
-                        launchApp(appModel.appPackage, appModel.activityClassName, appModel.user)
+                    is AppModel.PinnedShortcut,
+                    is AppModel.App -> {
+                        if (appModel.appPackage.isNotEmpty() && prefs.mindfulApps.contains(appModel.appPackage)) {
+                            mindfulLaunchRequest.postValue(
+                                PendingAppLaunch(appModel.appLabel.ifBlank { appModel.appPackage }, appModel)
+                            )
+                            return
+                        }
+                        launchModelDirect(appModel)
+                    }
 
                     else -> {}
                 }
@@ -84,7 +102,13 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
 
             Constants.FLAG_HIDDEN_APPS -> {
                 if (appModel is AppModel.App) {
-                    launchApp(appModel.appPackage, appModel.activityClassName, appModel.user)
+                    if (appModel.appPackage.isNotEmpty() && prefs.mindfulApps.contains(appModel.appPackage)) {
+                        mindfulLaunchRequest.postValue(
+                            PendingAppLaunch(appModel.appLabel.ifBlank { appModel.appPackage }, appModel)
+                        )
+                        return
+                    }
+                    launchModelDirect(appModel)
                 }
             }
 
@@ -523,6 +547,69 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 }
             } catch (e: Exception) {
                 e.printStackTrace()
+            }
+        }
+    }
+
+    fun confirmMindfulLaunch(pending: PendingAppLaunch) {
+        launchModelDirect(pending.appModel)
+    }
+
+    private fun launchModelDirect(appModel: AppModel) {
+        when (appModel) {
+            is AppModel.PinnedShortcut -> launchShortcut(appModel)
+            is AppModel.App -> launchApp(appModel.appPackage, appModel.activityClassName, appModel.user)
+            else -> {}
+        }
+    }
+
+    suspend fun getTodayPackageUsageFormatted(packageName: String): String? = withContext(Dispatchers.IO) {
+        if (packageName.isBlank() || !appContext.appUsagePermissionGranted()) return@withContext null
+        val calendar = Calendar.getInstance().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startTime = calendar.timeInMillis
+        val endTime = System.currentTimeMillis()
+        val stats = eventLogWrapper.aggregateForegroundStats(
+            eventLogWrapper.getForegroundStatsByTimestamps(startTime, endTime)
+        )
+        val timeUsed = stats.firstOrNull { it.packageName == packageName }?.timeUsed ?: 0L
+        val formatted = HtmlCompat.fromHtml(
+            appContext.formattedTimeSpent(timeUsed),
+            HtmlCompat.FROM_HTML_MODE_LEGACY
+        ).toString()
+        appContext.getString(R.string.used_today, formatted)
+    }
+
+    fun refreshWeather(force: Boolean = false, onResult: ((Boolean) -> Unit)? = null) {
+        if (prefs.weatherMode == Constants.WeatherMode.OFF) {
+            weatherJob?.cancel()
+            weatherValue.postValue(null)
+            onResult?.invoke(false)
+            return
+        }
+        val cached = prefs.cachedWeatherText.takeIf { it.isNotBlank() }
+        if (cached != null) {
+            weatherValue.postValue(cached)
+        }
+        if (!force && cached != null && !prefs.weatherLastUpdated.hasBeenMinutes(30)) {
+            onResult?.invoke(true)
+            return
+        }
+        if (!force && weatherJob?.isActive == true) return
+        weatherJob?.cancel()
+        weatherJob = viewModelScope.launch(Dispatchers.IO) {
+            val result = WeatherHelper.fetchCurrentWeather(appContext, prefs)
+            if (result != null) {
+                weatherValue.postValue(result)
+            }
+            if (onResult != null) {
+                withContext(Dispatchers.Main) {
+                    onResult.invoke(result != null)
+                }
             }
         }
     }

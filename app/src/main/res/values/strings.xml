@@ -169,4 +169,43 @@
     <string name="notification_bar">Notification bar</string>
     <string name="private_space">Private space</string>
     <string name="contacts">Contacts</string>
+
+    <!-- Weather -->
+    <string name="weather">Weather</string>
+    <string name="tap_for_local_weather">Tap to show local weather</string>
+    <string name="weather_unavailable">Weather unavailable right now</string>
+    <string name="refreshing_weather">Updating weather…</string>
+    <string name="celsius" translatable="false">°C</string>
+    <string name="fahrenheit" translatable="false">°F</string>
+
+    <!-- Fonts -->
+    <string name="font">Font</string>
+    <string name="font_light">Light</string>
+    <string name="font_system">System</string>
+    <string name="font_mono">Mono</string>
+    <string name="font_serif">Serif</string>
+    <string name="font_condensed">Condensed</string>
+
+    <!-- Focus, Biometric Lock & Backup -->
+    <string name="focus_and_backup">Focus &amp; backup</string>
+    <string name="mindful_app_pause">Mindful app pause</string>
+    <string name="select_mindful_apps">Tap apps to toggle mindful pause</string>
+    <string name="mindful_apps_selected">%1$d selected</string>
+    <string name="mindful_added">%1$s added to mindful pause</string>
+    <string name="mindful_removed">%1$s removed from mindful pause</string>
+    <string name="mindful_prompt">Take a breath. Do you really want to open this app right now?</string>
+    <string name="used_today">Used today: %1$s</string>
+    <string name="wait_seconds">Wait %1$ds…</string>
+    <string name="stay_focused">Stay focused</string>
+    <string name="open_anyway">Open anyway</string>
+    <string name="lock_hidden_apps">Lock hidden apps</string>
+    <string name="unlock_hidden_apps">Unlock hidden apps</string>
+    <string name="unlock_to_continue">Verify with fingerprint or screen lock</string>
+    <string name="set_screen_lock_first">Set a screen lock (PIN, pattern, or fingerprint) in system settings first</string>
+    <string name="backup_and_restore">Backup &amp; restore</string>
+    <string name="export_backup">Export</string>
+    <string name="import_backup">Restore</string>
+    <string name="backup_exported">Backup saved</string>
+    <string name="backup_restored">Backup restored</string>
+    <string name="backup_invalid">Invalid or unreadable backup file</string>
 </resources>
