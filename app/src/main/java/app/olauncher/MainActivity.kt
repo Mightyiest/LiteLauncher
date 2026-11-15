@@ -361,28 +361,9 @@ class MainActivity : AppCompatActivity() {
                     viewModel.showDialog.postValue(Constants.Dialog.WALLPAPER)
             }
 
-            Constants.UserState.REVIEW -> {
-                if (prefs.rateClicked)
-                    prefs.userState = Constants.UserState.SHARE
-                else if (isOlauncherDefault(this) && prefs.firstOpenTime.hasBeenHours(1))
-                    viewModel.showDialog.postValue(Constants.Dialog.REVIEW)
-            }
-
-            Constants.UserState.RATE -> {
-                if (prefs.rateClicked)
-                    prefs.userState = Constants.UserState.SHARE
-                else if (isOlauncherDefault(this)
-                    && prefs.firstOpenTime.isDaySince() >= 7
-                    && calendar.get(Calendar.HOUR_OF_DAY) >= 16
-                ) viewModel.showDialog.postValue(Constants.Dialog.RATE)
-            }
-
-            Constants.UserState.SHARE -> {
-                if (isOlauncherDefault(this) && prefs.firstOpenTime.hasBeenDays(14)
-                    && prefs.shareShownTime.isDaySince() >= 70
-                    && calendar.get(Calendar.HOUR_OF_DAY) >= 16
-                ) viewModel.showDialog.postValue(Constants.Dialog.SHARE)
-            }
+            Constants.UserState.REVIEW,
+            Constants.UserState.RATE,
+            Constants.UserState.SHARE -> Unit
         }
     }
 

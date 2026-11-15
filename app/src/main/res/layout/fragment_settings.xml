@@ -1251,61 +1251,34 @@
                     style="@style/TextSmall"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="8dp"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:padding="10dp"
                     android:text="@string/privacy" />
 
                 <TextView
-                    android:id="@+id/share"
-                    style="@style/TextSmall"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:padding="10dp"
-                    android:text="@string/share" />
-
-                <TextView
-                    android:id="@+id/rate"
-                    style="@style/TextSmall"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:padding="10dp"
-                    android:text="@string/rate" />
-
-                <TextView
                     android:id="@+id/github"
                     style="@style/TextSmall"
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
+                    android:layout_marginHorizontal="8dp"
                     android:ellipsize="end"
                     android:maxLines="1"
                     android:padding="10dp"
-                    android:text="@string/github" />
-
-                <TextView
-                    android:id="@+id/twitter"
-                    style="@style/TextSmall"
-                    android:layout_width="wrap_content"
-                    android:layout_height="wrap_content"
-                    android:ellipsize="end"
-                    android:maxLines="1"
-                    android:padding="10dp"
-                    android:text="@string/x_twitter" />
+                    android:text="@string/github_repo_link" />
             </LinearLayout>
 
             <TextView
-                android:id="@+id/footer"
+                android:id="@+id/forkNote"
                 style="@style/TextSmall"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:alpha="0.75"
                 android:gravity="center"
-                android:letterSpacing="0.03"
-                android:padding="12dp"
-                android:text="@string/new_app_note_safe" />
+                android:paddingHorizontal="16dp"
+                android:paddingVertical="10dp"
+                android:text="@string/fork_credit_note" />
 
         </LinearLayout>
 

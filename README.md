@@ -1,34 +1,26 @@
-![Olauncher](https://repository-images.githubusercontent.com/278638069/db0acb80-661b-11eb-803e-926cae5dccb4)
+# LiteLauncher
 
+> **Fork Notice:** **LiteLauncher** ([`Mightyiest/Olauncher`](https://github.com/Mightyiest/Olauncher)) is **heavily forked from the original [Olauncher](https://github.com/tanujnotes/Olauncher)** by [@tanujnotes](https://github.com/tanujnotes) under the [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html) license.
 
-# Olauncher | Minimal AF Launcher
-AF stands for Ad-Free
+---
 
-[<img src="https://fdroid.gitlab.io/artwork/badge/get-it-on.png"
-    alt="Get it on F-Droid"
-    height="80">](https://f-droid.org/packages/app.olauncher)
-[<img src="https://play.google.com/intl/en_us/badges/static/images/badges/en_badge_web_generic.png"
-    alt="Get it on Play Store"
-    height="80">](https://play.google.com/store/apps/details?id=app.olauncher)
+## Downloads
+- Grab the latest **PlayProtect-safe** APK from [GitHub Releases](https://github.com/Mightyiest/Olauncher/releases):
+  - **`LiteLauncher-PlayProtect-<version>-release.apk`** *(Recommended)*: Signed, R8-optimized release build (`app.litelauncher`) with `BIND_ACCESSIBILITY_SERVICE` / `MyAccessibilityService` removed so Google Play Protect Enhanced Fraud Protection allows direct installation.
+  - **`LiteLauncher-PlayProtect-<version>-debug.apk`**: Debug build (`app.litelauncher.debug`, installs side-by-side).
 
-### Install using [F-Droid](https://f-droid.org/packages/app.olauncher), [Play Store](https://play.google.com/store/apps/details?id=app.olauncher) or the [latest APK](https://github.com/tanujnotes/Olauncher/releases/).
+---
 
-- To maintain the simplicity of the launcher, a few niche features are available but hidden.
+## Enhancements in This Fork
+- **Location-Based Weather Label**: Shows `City · Temp Condition` under the Home date using coarse location with automatic IP-geolocation fallback and multi-provider forecasts (**MET Norway**, **wttr.in**, and **Open-Meteo**).
+- **Mindful App Pause**: 4-second breath countdown overlay with today's foreground usage before opening selected apps.
+- **Biometric / PIN Lock for Hidden Apps**: Protects hidden apps access, lock disabling, and backup export using fingerprint, face, or device screen lock.
+- **Custom Font Picker**: Choose `Light`, `System`, `Mono`, `Serif`, or `Condensed` across the Home screen and App Drawer.
+- **JSON Backup & Restore**: Export and restore settings, app lists, renames, fonts, and weather/lock preferences via Android's system file picker with zero storage permissions.
+- **Stability & Performance**: Main-thread I/O offloading, `DeviceAdmin` lock improvements, contact search deduplication, and hardened `SharedPreferences` handling.
 
-- Please check out the **[About](https://tanujnotes.substack.com/p/olauncher-minimal-af-launcher?utm_source=github)** page in the Olauncher settings for a complete list of features and **FAQs**.
+---
 
-##
-
-License: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)
-
-Dev: [X/twitter](https://x.com/tanujnotes) • [Bluesky](https://bsky.app/profile/tanujnotes.bsky.social)
-
-##
-
-### My other apps:
-
-- [Pro Launcher](https://play.google.com/store/apps/details?id=app.prolauncher) - Pro version of Olauncher with extra features like widgets, weather, folders, etc.
-
-- [Note to Self](https://play.google.com/store/apps/details?id=com.makenotetoself) - Free and [open source](https://github.com/jeerovan/ntsapp) notes app with chat like interface and end-to-end encryption.
-
-- [Pentastic](https://play.google.com/store/apps/details?id=app.pentastic) - Minimal todo lists. Free and [open source](https://github.com/tanujnotes/Pentastic).
+## Upstream Attribution
+- Original project: [tanujnotes/Olauncher](https://github.com/tanujnotes/Olauncher)
+- License: [GNU GPLv3](https://www.gnu.org/licenses/gpl-3.0.en.html)

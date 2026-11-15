@@ -209,4 +209,8 @@
     <string name="backup_exported">Backup saved</string>
     <string name="backup_restored">Backup restored</string>
     <string name="backup_invalid">Invalid or unreadable backup file</string>
+
+    <!-- GitHub & Fork Attribution -->
+    <string name="github_repo_link" translatable="false">GitHub (Mightyiest/Olauncher)</string>
+    <string name="fork_credit_note" translatable="false">Heavily forked from the original Olauncher (tanujnotes/Olauncher)</string>
 </resources>

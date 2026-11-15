@@ -22,8 +22,8 @@ android {
         applicationId = "app.litelauncher"
         minSdk = 24
         targetSdk = 35
-        versionCode = 112
-        versionName = "v6.6.21"
+        versionCode = 113
+        versionName = "v6.6.22"
 
         resourceConfigurations.addAll(listOf("en", "ar", "de", "es-rES", "es-rUS", "fr", "he", "hr", "hu", "in", "it", "ja", "nl", "pl", "pt-rBR", "ru-rRU", "sv", "tr", "uk", "zh"))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
