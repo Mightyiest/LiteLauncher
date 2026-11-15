@@ -576,7 +576,7 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         val stats = eventLogWrapper.aggregateForegroundStats(
             eventLogWrapper.getForegroundStatsByTimestamps(startTime, endTime)
         )
-        val timeUsed = stats.firstOrNull { it.packageName == packageName }?.timeUsed ?: 0L
+        val timeUsed = stats.filter { it.applicationId == packageName }.sumOf { it.timeUsed }
         val formatted = HtmlCompat.fromHtml(
             appContext.formattedTimeSpent(timeUsed),
             HtmlCompat.FROM_HTML_MODE_LEGACY
