@@ -136,6 +136,8 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         populateAppThemeText()
         populateTextSize()
         populateAlignment()
+        populateDrawerAlignment()
+        populateSideDockSettings()
         populateStatusBar()
         populateDateTime()
         populateWeatherSetting()
@@ -145,7 +147,6 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         populateMergeDualApps()
         populateSwipeApps()
         populateSwipeDownAction()
-        populateActionHints()
         initClickListeners()
         initObservers()
     }
@@ -154,6 +155,8 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         super.onResume()
         checkAdminPermission()
         populateLockSettings()
+        populateDrawerAlignment()
+        populateSideDockSettings()
         populateWeatherSetting()
         populateFontSetting()
         populateMindfulAppsCount()
@@ -168,6 +171,9 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         binding.fontSelectLayout.visibility = View.GONE
         binding.appThemeSelectLayout.visibility = View.GONE
         binding.swipeDownSelectLayout.visibility = View.GONE
+        binding.drawerAlignmentSelectLayout.visibility = View.GONE
+        binding.sideDockSelectLayout.visibility = View.GONE
+        binding.sideDockCountSelectLayout.visibility = View.GONE
         if (view.id != R.id.textSizeMinus && view.id != R.id.textSizePlus) {
             if (binding.textSizesLayout.isVisible) {
                 binding.textSizesLayout.visibility = View.GONE
@@ -195,6 +201,21 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
             R.id.alignmentCenter -> viewModel.updateHomeAlignment(Gravity.CENTER)
             R.id.alignmentRight -> viewModel.updateHomeAlignment(Gravity.END)
             R.id.alignmentBottom -> updateHomeBottomAlignment()
+            R.id.drawerAlignment -> binding.drawerAlignmentSelectLayout.visibility = View.VISIBLE
+            R.id.drawerAlignmentLeft -> updateDrawerAlignment(Gravity.START)
+            R.id.drawerAlignmentCenter -> updateDrawerAlignment(Gravity.CENTER)
+            R.id.drawerAlignmentRight -> updateDrawerAlignment(Gravity.END)
+            R.id.sideDockPosition -> binding.sideDockSelectLayout.visibility = View.VISIBLE
+            R.id.sideDockOff -> updateSideDockPosition(Constants.SideDockPosition.OFF)
+            R.id.sideDockLeft -> updateSideDockPosition(Constants.SideDockPosition.LEFT)
+            R.id.sideDockRight -> updateSideDockPosition(Constants.SideDockPosition.RIGHT)
+            R.id.sideDockCount -> binding.sideDockCountSelectLayout.visibility = View.VISIBLE
+            R.id.sideDockCount1 -> updateSideDockCount(1)
+            R.id.sideDockCount2 -> updateSideDockCount(2)
+            R.id.sideDockCount3 -> updateSideDockCount(3)
+            R.id.sideDockCount4 -> updateSideDockCount(4)
+            R.id.sideDockCount5 -> updateSideDockCount(5)
+            R.id.sideDockCount6 -> updateSideDockCount(6)
             R.id.statusBar -> toggleStatusBar()
             R.id.dateTime -> binding.dateTimeSelectLayout.visibility = View.VISIBLE
             R.id.dateTimeOn -> toggleDateTime(Constants.DateTime.ON)
@@ -245,11 +266,6 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
             R.id.notifications -> updateSwipeDownAction(Constants.SwipeDownAction.NOTIFICATIONS)
             R.id.search -> updateSwipeDownAction(Constants.SwipeDownAction.SEARCH)
 
-            R.id.aboutOlauncher -> {
-                prefs.aboutClicked = true
-                requireContext().openUrl(Constants.URL_ABOUT_OLAUNCHER)
-            }
-
             R.id.github -> requireContext().openUrl(Constants.URL_OLAUNCHER_GITHUB)
             R.id.privacy -> requireContext().openUrl(Constants.URL_OLAUNCHER_PRIVACY)
             R.id.forkNote -> requireContext().openUrl(Constants.URL_ORIGINAL_OLAUNCHER_GITHUB)
@@ -288,7 +304,6 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         binding.scrollLayout.setOnClickListener(this)
         binding.appInfo.setOnClickListener(this)
         binding.setLauncher.setOnClickListener(this)
-        binding.aboutOlauncher.setOnClickListener(this)
         binding.moreFeatures.setOnClickListener(this)
         binding.autoShowKeyboard.setOnClickListener(this)
         binding.toggleLock.setOnClickListener(this)
@@ -303,6 +318,21 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         binding.alignmentCenter.setOnClickListener(this)
         binding.alignmentRight.setOnClickListener(this)
         binding.alignmentBottom.setOnClickListener(this)
+        binding.drawerAlignment.setOnClickListener(this)
+        binding.drawerAlignmentLeft.setOnClickListener(this)
+        binding.drawerAlignmentCenter.setOnClickListener(this)
+        binding.drawerAlignmentRight.setOnClickListener(this)
+        binding.sideDockPosition.setOnClickListener(this)
+        binding.sideDockOff.setOnClickListener(this)
+        binding.sideDockLeft.setOnClickListener(this)
+        binding.sideDockRight.setOnClickListener(this)
+        binding.sideDockCount.setOnClickListener(this)
+        binding.sideDockCount1.setOnClickListener(this)
+        binding.sideDockCount2.setOnClickListener(this)
+        binding.sideDockCount3.setOnClickListener(this)
+        binding.sideDockCount4.setOnClickListener(this)
+        binding.sideDockCount5.setOnClickListener(this)
+        binding.sideDockCount6.setOnClickListener(this)
         binding.statusBar.setOnClickListener(this)
         binding.dateTime.setOnClickListener(this)
         binding.dateTimeOn.setOnClickListener(this)
@@ -368,7 +398,6 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
 
     private fun initObservers() {
         if (prefs.firstSettingsOpen) {
-            viewModel.showDialog.postValue(Constants.Dialog.ABOUT)
             prefs.firstSettingsOpen = false
         }
         viewModel.isOlauncherDefault.observe(viewLifecycleOwner) {
@@ -698,6 +727,46 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         else getString(R.string.bottom_off)
     }
 
+    private fun updateDrawerAlignment(gravity: Int) {
+        prefs.appLabelAlignment = gravity
+        populateDrawerAlignment()
+    }
+
+    private fun populateDrawerAlignment() {
+        binding.drawerAlignment.text = getString(
+            when (prefs.appLabelAlignment) {
+                Gravity.CENTER -> R.string.center
+                Gravity.END -> R.string.right
+                else -> R.string.left
+            }
+        )
+    }
+
+    private fun updateSideDockPosition(position: Int) {
+        prefs.sideDockPosition = position
+        populateSideDockSettings()
+        viewModel.refreshHome(false)
+    }
+
+    private fun updateSideDockCount(count: Int) {
+        prefs.sideDockCount = count
+        populateSideDockSettings()
+        viewModel.refreshHome(false)
+    }
+
+    private fun populateSideDockSettings() {
+        val pos = prefs.sideDockPosition
+        binding.sideDockPosition.text = getString(
+            when (pos) {
+                Constants.SideDockPosition.LEFT -> R.string.left
+                Constants.SideDockPosition.RIGHT -> R.string.right
+                else -> R.string.off
+            }
+        )
+        binding.sideDockCountRow.isVisible = pos != Constants.SideDockPosition.OFF
+        binding.sideDockCount.text = prefs.sideDockCount.toString()
+    }
+
     // Home button for recents feature disabled
     // private fun toggleHomeButtonRecents() {
     //     if (!prefs.homeButtonShowRecents && !isAccessServiceEnabled(requireContext())) {
@@ -771,11 +840,6 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
             R.id.action_settingsFragment_to_appListFragment,
             bundleOf(Constants.Key.FLAG to flag)
         )
-    }
-
-    private fun populateActionHints() {
-        if (prefs.aboutClicked.not())
-            binding.aboutOlauncher.setCompoundDrawablesWithIntrinsicBounds(0, 0, R.drawable.ic_info, 0)
     }
 
     private fun updateWeatherMode(mode: Int) {

@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v6.6.25-PlayProtect)'
+        description: 'Release tag (e.g. v6.6.26-PlayProtect)'
         required: false
-        default: 'v6.6.25-PlayProtect'
+        default: 'v6.6.26-PlayProtect'
 
 permissions:
   contents: write
@@ -73,7 +73,7 @@ jobs:
           elif [[ -n "${{ inputs.tag_name }}" ]]; then
             TAG="${{ inputs.tag_name }}"
           else
-            TAG="v6.6.25-PlayProtect"
+            TAG="v6.6.26-PlayProtect"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           mkdir -p dist
@@ -117,6 +117,8 @@ jobs:
           - **LiteLauncher-PlayProtect-__BASE_VER__-debug.apk**: PlayProtect debug build (`app.litelauncher.debug`, installs side-by-side).
 
           ### What's New in __BASE_VER__
+          - **OLED Monochrome Side Icon Dock**: Adds an optional vertical quick-icon dock (`Off` / `Left` / `Right`, `1`–`6` icons) on the Home screen rendering Android 13+ monochrome layers or high-contrast B&W OLED icons inside circular rings. Tap to launch (with Mindful App Pause support) or long-press a slot to assign an app.
+          - **Explicit App Drawer Alignment**: Adds **Settings → App drawer alignment** (`Left` / `Center` / `Right`) alongside Home alignment, and removes the **About and FAQs** row & initial popup.
           - **Inline Search Calculator Improvements**: Prevents apps containing numbers (e.g., `7-Eleven`, `1Password`) from auto-launching while you're typing digits to start a math calculation, and adds optional leading `=` support (`= 1250 * 0.12`).
           - **Inline Search Calculator**: Type math expressions (`+`, `-`, `*`, `×`, `/`, `÷`, `^`, `%`, parentheses, implicit multiplication) directly in the App Drawer search bar to see live formatted answers (`= 1,250.5`), tap or press Enter to copy, or long-press to open your Calculator app.
           - **Merge Xiaomi Dual Apps**: Combines duplicate `UserHandle{999}` Dual Apps into a single cleanly badged entry (`Discord ²`, `Riot Mobile ²`), restoring type-to-auto-launch, showing inline `· Dual` / `· Work` labels when separate, syncing hide/unhide across profiles, and adding a **Settings → Merge dual apps** toggle.

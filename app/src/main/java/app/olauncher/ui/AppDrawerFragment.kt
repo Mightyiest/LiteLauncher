@@ -100,7 +100,9 @@ class AppDrawerFragment : Fragment() {
             binding.search.queryHint = getString(R.string.hidden_apps)
         else if (flag == Constants.FLAG_MINDFUL_APPS)
             binding.search.queryHint = getString(R.string.select_mindful_apps)
-        else if (flag in Constants.FLAG_SET_HOME_APP_1..Constants.FLAG_SET_SCREEN_TIME_APP)
+        else if (flag in Constants.FLAG_SET_HOME_APP_1..Constants.FLAG_SET_SCREEN_TIME_APP ||
+            flag in Constants.FLAG_SET_SIDE_DOCK_1..Constants.FLAG_SET_SIDE_DOCK_6
+        )
             binding.search.queryHint = "Please select an app"
         try {
             val fontTypeface = FontHelper.getTypeface(prefs.fontFamily)

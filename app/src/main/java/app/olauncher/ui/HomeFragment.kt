@@ -15,6 +15,7 @@ import android.view.View
 import android.view.ViewGroup
 import android.view.WindowInsets
 import android.widget.FrameLayout
+import android.widget.ImageView
 import android.widget.TextView
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
@@ -36,12 +37,14 @@ import app.olauncher.data.Constants
 import app.olauncher.data.Prefs
 import app.olauncher.databinding.FragmentHomeBinding
 import app.olauncher.helper.FontHelper
+import app.olauncher.helper.MonochromeIconHelper
 import app.olauncher.helper.WeatherHelper
 import app.olauncher.helper.appUsagePermissionGranted
 import app.olauncher.helper.dpToPx
 import app.olauncher.helper.expandNotificationDrawer
 import app.olauncher.helper.getChangedAppTheme
 import app.olauncher.helper.getUserHandleFromString
+import app.olauncher.helper.isDarkThemeOn
 import app.olauncher.helper.isPackageInstalled
 import app.olauncher.helper.openAlarmApp
 import app.olauncher.helper.openCalendar
@@ -66,6 +69,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private lateinit var viewModel: MainViewModel
     private lateinit var deviceManager: DevicePolicyManager
     private var verifyHomeAppsJob: Job? = null
+    private var loadSideDockJob: Job? = null
 
     private val requestWeatherPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
@@ -127,6 +131,12 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             R.id.tvWeather -> onWeatherClick()
             R.id.setDefaultLauncher -> viewModel.resetLauncherLiveData.call()
             R.id.tvScreenTime -> openScreenTimeDigitalWellbeing()
+            R.id.sideDockApp1 -> sideDockClicked(1)
+            R.id.sideDockApp2 -> sideDockClicked(2)
+            R.id.sideDockApp3 -> sideDockClicked(3)
+            R.id.sideDockApp4 -> sideDockClicked(4)
+            R.id.sideDockApp5 -> sideDockClicked(5)
+            R.id.sideDockApp6 -> sideDockClicked(6)
 
             else -> {
                 try { // Launch app
@@ -173,6 +183,12 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             R.id.homeApp6 -> showAppList(Constants.FLAG_SET_HOME_APP_6, prefs.appName6.isNotEmpty(), true)
             R.id.homeApp7 -> showAppList(Constants.FLAG_SET_HOME_APP_7, prefs.appName7.isNotEmpty(), true)
             R.id.homeApp8 -> showAppList(Constants.FLAG_SET_HOME_APP_8, prefs.appName8.isNotEmpty(), true)
+            R.id.sideDockApp1 -> showAppList(Constants.FLAG_SET_SIDE_DOCK_1, false, true)
+            R.id.sideDockApp2 -> showAppList(Constants.FLAG_SET_SIDE_DOCK_2, false, true)
+            R.id.sideDockApp3 -> showAppList(Constants.FLAG_SET_SIDE_DOCK_3, false, true)
+            R.id.sideDockApp4 -> showAppList(Constants.FLAG_SET_SIDE_DOCK_4, false, true)
+            R.id.sideDockApp5 -> showAppList(Constants.FLAG_SET_SIDE_DOCK_5, false, true)
+            R.id.sideDockApp6 -> showAppList(Constants.FLAG_SET_SIDE_DOCK_6, false, true)
             R.id.clock -> {
                 showAppList(Constants.FLAG_SET_CLOCK_APP)
                 prefs.clockAppPackage = ""
@@ -290,6 +306,17 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
         binding.setDefaultLauncher.setOnLongClickListener(this)
         binding.tvScreenTime.setOnClickListener(this)
         binding.tvScreenTime.setOnLongClickListener(this)
+        listOf(
+            binding.sideDockApp1,
+            binding.sideDockApp2,
+            binding.sideDockApp3,
+            binding.sideDockApp4,
+            binding.sideDockApp5,
+            binding.sideDockApp6
+        ).forEach { dockView ->
+            dockView.setOnClickListener(this)
+            dockView.setOnLongClickListener(this)
+        }
     }
 
     private fun setHomeAlignment(horizontalGravity: Int = prefs.homeAlignment) {
@@ -410,6 +437,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
     private fun populateHomeScreen(appCountUpdated: Boolean) {
         if (appCountUpdated) hideHomeApps()
         populateDateTime()
+        populateSideDock()
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q)
             populateScreenTime()
@@ -586,6 +614,134 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
             isShortcut = prefs.getIsShortcut(location),
             userString = prefs.getAppUser(location)
         )
+    }
+
+    private fun sideDockClicked(position: Int) {
+        val pkg = prefs.getSideDockPackage(position)
+        if (pkg.isBlank()) {
+            showLongPressToast()
+            return
+        }
+        launchAppOrShortcut(
+            appName = prefs.getSideDockAppName(position).ifBlank { pkg },
+            packageName = pkg,
+            activityClassName = prefs.getSideDockActivityClassName(position),
+            shortcutId = prefs.getSideDockShortcutId(position),
+            isShortcut = prefs.getSideDockIsShortcut(position),
+            userString = prefs.getSideDockUser(position)
+        )
+    }
+
+    private fun populateSideDock() {
+        loadSideDockJob?.cancel()
+
+        val pos = prefs.sideDockPosition
+        val isLandscape = resources.configuration.orientation == Configuration.ORIENTATION_LANDSCAPE
+        if (!isLandscape) {
+            val startPad = if (pos == Constants.SideDockPosition.LEFT) 72.dpToPx() else 24.dpToPx()
+            val endPad = if (pos == Constants.SideDockPosition.RIGHT) 72.dpToPx() else 24.dpToPx()
+            binding.homeAppsLayout.setPaddingRelative(
+                startPad,
+                binding.homeAppsLayout.paddingTop,
+                endPad,
+                binding.homeAppsLayout.paddingBottom
+            )
+        }
+
+        if (pos == Constants.SideDockPosition.OFF) {
+            binding.sideDockLayout.isVisible = false
+            return
+        }
+
+        val dockParams = binding.sideDockLayout.layoutParams as FrameLayout.LayoutParams
+        val targetGravity =
+            (if (pos == Constants.SideDockPosition.LEFT) Gravity.START else Gravity.END) or Gravity.CENTER_VERTICAL
+        if (dockParams.gravity != targetGravity) {
+            dockParams.gravity = targetGravity
+            binding.sideDockLayout.layoutParams = dockParams
+        }
+        binding.sideDockLayout.isVisible = true
+
+        val dockViews = listOf(
+            binding.sideDockApp1,
+            binding.sideDockApp2,
+            binding.sideDockApp3,
+            binding.sideDockApp4,
+            binding.sideDockApp5,
+            binding.sideDockApp6
+        )
+        val count = prefs.sideDockCount
+        val slotsToLoad = mutableListOf<Triple<Int, ImageView, HomeAppSlot>>()
+
+        for (i in 1..dockViews.size) {
+            val iconView = dockViews[i - 1]
+            if (i > count) {
+                iconView.visibility = View.GONE
+                continue
+            }
+            iconView.visibility = View.VISIBLE
+            val pkg = prefs.getSideDockPackage(i)
+            val appName = prefs.getSideDockAppName(i)
+            if (pkg.isBlank()) {
+                iconView.setImageResource(R.drawable.ic_add_minimal)
+                iconView.contentDescription = getString(R.string.side_icon_dock)
+            } else {
+                iconView.contentDescription = appName.ifBlank { pkg }
+                slotsToLoad.add(
+                    Triple(
+                        i,
+                        iconView,
+                        HomeAppSlot(
+                            location = i,
+                            packageName = pkg,
+                            userString = prefs.getSideDockUser(i),
+                            isShortcut = prefs.getSideDockIsShortcut(i),
+                            shortcutId = prefs.getSideDockShortcutId(i)
+                        )
+                    )
+                )
+            }
+        }
+
+        if (slotsToLoad.isEmpty()) return
+
+        val appContext = requireContext().applicationContext
+        val isDark = requireContext().isDarkThemeOn()
+        val iconSizePx = 24.dpToPx()
+        loadSideDockJob = viewLifecycleOwner.lifecycleScope.launch {
+            for ((index, iconView, slot) in slotsToLoad) {
+                val valid = withContext(Dispatchers.IO) {
+                    isHomeAppInstalled(
+                        appContext,
+                        slot.packageName,
+                        slot.userString,
+                        slot.isShortcut,
+                        slot.shortcutId
+                    )
+                }
+                if (!isAdded || _binding == null) return@launch
+                if (!valid) {
+                    prefs.clearSideDockSlot(index)
+                    iconView.setImageResource(R.drawable.ic_add_minimal)
+                    iconView.contentDescription = getString(R.string.side_icon_dock)
+                    continue
+                }
+                val userHandle = getUserHandleFromString(appContext, slot.userString)
+                val bitmap = MonochromeIconHelper.loadMonochromeIcon(
+                    appContext,
+                    slot.packageName,
+                    userHandle,
+                    isDark,
+                    iconSizePx
+                )
+                if (!isAdded || _binding == null) return@launch
+                if (bitmap != null) {
+                    iconView.setImageBitmap(bitmap)
+                } else {
+                    iconView.setImageResource(R.drawable.ic_add_minimal)
+                }
+            }
+        }
     }
 
     private fun openSwipeRightApp() {
@@ -810,6 +966,7 @@ class HomeFragment : Fragment(), View.OnClickListener, View.OnLongClickListener 
 
     override fun onDestroyView() {
         verifyHomeAppsJob?.cancel()
+        loadSideDockJob?.cancel()
         super.onDestroyView()
         _binding = null
     }

@@ -126,6 +126,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             Constants.FLAG_SET_CLOCK_APP -> saveClockApp(appModel)
             Constants.FLAG_SET_CALENDAR_APP -> saveCalendarApp(appModel)
             Constants.FLAG_SET_SCREEN_TIME_APP -> saveScreenTimeApp(appModel)
+            in Constants.FLAG_SET_SIDE_DOCK_1..Constants.FLAG_SET_SIDE_DOCK_6 ->
+                saveSideDockApp(appModel, flag - Constants.FLAG_SET_SIDE_DOCK_1 + 1)
         }
     }
 
@@ -368,6 +370,35 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
             prefs.screenTimeAppUser = appModel.user.toString()
             prefs.screenTimeAppClassName = appModel.activityClassName
         }
+    }
+
+    private fun saveSideDockApp(appModel: AppModel, position: Int) {
+        when (appModel) {
+            is AppModel.App -> {
+                prefs.setSideDockApp(
+                    position = position,
+                    appName = appModel.appLabel,
+                    appPackage = appModel.appPackage,
+                    activityClassName = appModel.activityClassName,
+                    user = appModel.user.toString()
+                )
+            }
+
+            is AppModel.PinnedShortcut -> {
+                prefs.setSideDockApp(
+                    position = position,
+                    appName = appModel.appLabel,
+                    appPackage = appModel.appPackage,
+                    activityClassName = null,
+                    user = appModel.user.toString(),
+                    isShortcut = true,
+                    shortcutId = appModel.shortcutId
+                )
+            }
+
+            else -> return
+        }
+        refreshHome(false)
     }
 
     fun firstOpen(value: Boolean) {

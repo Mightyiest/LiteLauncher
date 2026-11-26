@@ -54,6 +54,9 @@
     <string name="right">Right</string>
     <string name="center">Center</string>
     <string name="home_layout_alignment">App alignment</string>
+    <string name="app_drawer_alignment">App drawer alignment</string>
+    <string name="side_icon_dock">Side icon dock</string>
+    <string name="side_dock_icons">Side dock icons</string>
     <string name="swipe_left_app">Swipe left app</string>
     <string name="swipe_right_app">Swipe right app</string>
     <string name="_0">0</string>

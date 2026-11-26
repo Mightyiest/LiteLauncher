@@ -71,6 +71,12 @@ object Constants {
         const val FAHRENHEIT = 2
     }
 
+    object SideDockPosition {
+        const val OFF = 0
+        const val LEFT = 1
+        const val RIGHT = 2
+    }
+
     object FontFamily {
         const val LIGHT = "sans-serif-light"
         const val SYSTEM = "sans-serif"
@@ -99,6 +105,12 @@ object Constants {
     const val FLAG_SET_CLOCK_APP = 13
     const val FLAG_SET_CALENDAR_APP = 14
     const val FLAG_SET_SCREEN_TIME_APP = 15
+    const val FLAG_SET_SIDE_DOCK_1 = 21
+    const val FLAG_SET_SIDE_DOCK_2 = 22
+    const val FLAG_SET_SIDE_DOCK_3 = 23
+    const val FLAG_SET_SIDE_DOCK_4 = 24
+    const val FLAG_SET_SIDE_DOCK_5 = 25
+    const val FLAG_SET_SIDE_DOCK_6 = 26
 
     const val REQUEST_CODE_ENABLE_ADMIN = 666
     const val REQUEST_CODE_LAUNCHER_SELECTOR = 678

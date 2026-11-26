@@ -55,6 +55,8 @@ class Prefs(context: Context) {
     private val LOCK_HIDDEN_APPS = "LOCK_HIDDEN_APPS"
     private val MINDFUL_APPS = "MINDFUL_APPS"
     private val MERGE_DUAL_APPS = "MERGE_DUAL_APPS"
+    private val SIDE_DOCK_POSITION = "SIDE_DOCK_POSITION"
+    private val SIDE_DOCK_COUNT = "SIDE_DOCK_COUNT"
     // Home button for recents feature disabled
     // private val HOME_BUTTON_SHOW_RECENTS = "HOME_BUTTON_SHOW_RECENTS"
 
@@ -652,6 +654,11 @@ class Prefs(context: Context) {
         if (screenTimeAppPackage == packageName) screenTimeAppClassName = activityClassName
         if (appPackageSwipeLeft == packageName) appActivityClassNameSwipeLeft = activityClassName
         if (appPackageSwipeRight == packageName) appActivityClassNameRight = activityClassName
+        for (i in 1..6) {
+            if (getSideDockPackage(i) == packageName) {
+                prefs.edit { putString("SIDE_DOCK_CLASS_$i", activityClassName) }
+            }
+        }
     }
 
     fun getAppRenameLabel(appPackage: String, user: UserHandle? = null): String {
@@ -736,6 +743,53 @@ class Prefs(context: Context) {
     var mergeDualApps: Boolean
         get() = prefs.getBoolean(MERGE_DUAL_APPS, true)
         set(value) = prefs.edit { putBoolean(MERGE_DUAL_APPS, value) }
+
+    var sideDockPosition: Int
+        get() = prefs.getInt(SIDE_DOCK_POSITION, Constants.SideDockPosition.RIGHT)
+        set(value) = prefs.edit { putInt(SIDE_DOCK_POSITION, value) }
+
+    var sideDockCount: Int
+        get() = prefs.getInt(SIDE_DOCK_COUNT, 4).coerceIn(1, 6)
+        set(value) = prefs.edit { putInt(SIDE_DOCK_COUNT, value.coerceIn(1, 6)) }
+
+    fun getSideDockAppName(position: Int): String = prefs.getString("SIDE_DOCK_NAME_$position", "").toString()
+    fun getSideDockPackage(position: Int): String = prefs.getString("SIDE_DOCK_PKG_$position", "").toString()
+    fun getSideDockActivityClassName(position: Int): String = prefs.getString("SIDE_DOCK_CLASS_$position", "").toString()
+    fun getSideDockUser(position: Int): String = prefs.getString("SIDE_DOCK_USER_$position", "").toString()
+    fun getSideDockIsShortcut(position: Int): Boolean = prefs.getBoolean("SIDE_DOCK_IS_SHORTCUT_$position", false)
+    fun getSideDockShortcutId(position: Int): String = prefs.getString("SIDE_DOCK_SHORTCUT_ID_$position", "").toString()
+
+    fun setSideDockApp(
+        position: Int,
+        appName: String,
+        appPackage: String,
+        activityClassName: String?,
+        user: String,
+        isShortcut: Boolean = false,
+        shortcutId: String = "",
+    ) {
+        if (position !in 1..6) return
+        prefs.edit {
+            putString("SIDE_DOCK_NAME_$position", appName)
+            putString("SIDE_DOCK_PKG_$position", appPackage)
+            putString("SIDE_DOCK_CLASS_$position", activityClassName.orEmpty())
+            putString("SIDE_DOCK_USER_$position", user)
+            putBoolean("SIDE_DOCK_IS_SHORTCUT_$position", isShortcut)
+            putString("SIDE_DOCK_SHORTCUT_ID_$position", shortcutId)
+        }
+    }
+
+    fun clearSideDockSlot(position: Int) {
+        if (position !in 1..6) return
+        prefs.edit {
+            putString("SIDE_DOCK_NAME_$position", "")
+            putString("SIDE_DOCK_PKG_$position", "")
+            putString("SIDE_DOCK_CLASS_$position", "")
+            putString("SIDE_DOCK_USER_$position", "")
+            putBoolean("SIDE_DOCK_IS_SHORTCUT_$position", false)
+            putString("SIDE_DOCK_SHORTCUT_ID_$position", "")
+        }
+    }
 
     fun exportToJson(): String {
         val transientKeys = setOf(

@@ -189,6 +189,92 @@
 
     </LinearLayout>
 
+    <!-- Monochrome / OLED side quick icon dock -->
+    <LinearLayout
+        android:id="@+id/sideDockLayout"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginHorizontal="16dp"
+        android:elevation="3dp"
+        android:gravity="center"
+        android:orientation="vertical"
+        android:visibility="gone"
+        tools:visibility="visible">
+
+        <ImageView
+            android:id="@+id/sideDockApp1"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginVertical="5dp"
+            android:background="@drawable/bg_side_dock_icon"
+            android:contentDescription="@string/side_icon_dock"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_add_minimal"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/sideDockApp2"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginVertical="5dp"
+            android:background="@drawable/bg_side_dock_icon"
+            android:contentDescription="@string/side_icon_dock"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_add_minimal"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/sideDockApp3"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginVertical="5dp"
+            android:background="@drawable/bg_side_dock_icon"
+            android:contentDescription="@string/side_icon_dock"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_add_minimal"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/sideDockApp4"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginVertical="5dp"
+            android:background="@drawable/bg_side_dock_icon"
+            android:contentDescription="@string/side_icon_dock"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_add_minimal"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/sideDockApp5"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginVertical="5dp"
+            android:background="@drawable/bg_side_dock_icon"
+            android:contentDescription="@string/side_icon_dock"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_add_minimal"
+            android:visibility="gone" />
+
+        <ImageView
+            android:id="@+id/sideDockApp6"
+            android:layout_width="40dp"
+            android:layout_height="40dp"
+            android:layout_marginVertical="5dp"
+            android:background="@drawable/bg_side_dock_icon"
+            android:contentDescription="@string/side_icon_dock"
+            android:padding="8dp"
+            android:scaleType="fitCenter"
+            android:src="@drawable/ic_add_minimal"
+            android:visibility="gone" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/firstRunTips"
         style="@style/TextSmall"
