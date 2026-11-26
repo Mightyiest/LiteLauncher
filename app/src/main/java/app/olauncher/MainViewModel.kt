@@ -144,7 +144,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         when (appModel) {
             is AppModel.PrivateSpaceHeader,
             is AppModel.Contact,
-            is AppModel.ContactHeader -> return
+            is AppModel.ContactHeader,
+            is AppModel.CalculatorResult -> return
             is AppModel.App -> {
                 when (position) {
                     1 -> {
@@ -304,7 +305,8 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         when (appModel) {
             is AppModel.PrivateSpaceHeader,
             is AppModel.Contact,
-            is AppModel.ContactHeader -> return
+            is AppModel.ContactHeader,
+            is AppModel.CalculatorResult -> return
             is AppModel.App -> {
                 if (isLeft) {
                     prefs.appNameSwipeLeft = appModel.appLabel

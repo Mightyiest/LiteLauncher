@@ -198,7 +198,8 @@ class AppDrawerFragment : Fragment() {
                 when (appModel) {
                     is AppModel.PrivateSpaceHeader,
                     is AppModel.Contact,
-                    is AppModel.ContactHeader -> {}
+                    is AppModel.ContactHeader,
+                    is AppModel.CalculatorResult -> {}
                     is AppModel.PinnedShortcut ->
                         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N_MR1) {
                             requireContext().deletePinnedShortcut(
