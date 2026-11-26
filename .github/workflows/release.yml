@@ -7,9 +7,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: 'Release tag (e.g. v6.6.23-PlayProtect)'
+        description: 'Release tag (e.g. v6.6.24-PlayProtect)'
         required: false
-        default: 'v6.6.23-PlayProtect'
+        default: 'v6.6.24-PlayProtect'
 
 permissions:
   contents: write
@@ -44,7 +44,7 @@ jobs:
           KEY_PASSWORD: ${{ secrets.SIGNING_KEY_PASSWORD }}
         run: |
           chmod +x ./gradlew
-          ./gradlew assemblePlayprotectRelease assemblePlayprotectDebug assembleStandardRelease --stacktrace
+          ./gradlew testPlayprotectDebugUnitTest assemblePlayprotectRelease assemblePlayprotectDebug assembleStandardRelease --stacktrace
 
       - name: Verify PlayProtect APK manifests have no AccessibilityService
         run: |
@@ -73,7 +73,7 @@ jobs:
           elif [[ -n "${{ inputs.tag_name }}" ]]; then
             TAG="${{ inputs.tag_name }}"
           else
-            TAG="v6.6.23-PlayProtect"
+            TAG="v6.6.24-PlayProtect"
           fi
           echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
           mkdir -p dist
@@ -117,6 +117,7 @@ jobs:
           - **LiteLauncher-PlayProtect-__BASE_VER__-debug.apk**: PlayProtect debug build (`app.litelauncher.debug`, installs side-by-side).
 
           ### What's New in __BASE_VER__
+          - **Inline Search Calculator**: Type math expressions (`+`, `-`, `*`, `×`, `/`, `÷`, `^`, `%`, parentheses, implicit multiplication) directly in the App Drawer search bar to see live formatted answers (`= 1,250.5`), tap or press Enter to copy, or long-press to open your Calculator app.
           - **Merge Xiaomi Dual Apps**: Combines duplicate `UserHandle{999}` Dual Apps into a single cleanly badged entry (`Discord ²`, `Riot Mobile ²`), restoring type-to-auto-launch, showing inline `· Dual` / `· Work` labels when separate, syncing hide/unhide across profiles, and adding a **Settings → Merge dual apps** toggle.
           - **Cleaned Settings & Fork Attribution**: Removed Share, Rate, Note to Self, and X/Twitter links (plus automatic Review/Rate/Share prompts), updated the GitHub link to `https://github.com/Mightyiest/Olauncher`, and added a fork note crediting the original `tanujnotes/Olauncher`.
           - **Reliable Multi-Provider Weather & Location Fallback**: Uses MET Norway, wttr.in, and Open-Meteo with coarse fused/network location and automatic IP-geolocation fallback when location permission or GPS/network providers are unavailable, plus higher touch priority and instant unit-switch refresh.

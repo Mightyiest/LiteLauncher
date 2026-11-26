@@ -22,8 +22,8 @@ android {
         applicationId = "app.litelauncher"
         minSdk = 24
         targetSdk = 35
-        versionCode = 114
-        versionName = "v6.6.23"
+        versionCode = 115
+        versionName = "v6.6.24"
 
         resourceConfigurations.addAll(listOf("en", "ar", "de", "es-rES", "es-rUS", "fr", "he", "hr", "hu", "in", "it", "ja", "nl", "pl", "pt-rBR", "ru-rRU", "sv", "tr", "uk", "zh"))
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
@@ -104,4 +104,6 @@ dependencies {
 
     // Material dependency
     implementation(libs.material)
+
+    testImplementation("junit:junit:4.13.2")
 }

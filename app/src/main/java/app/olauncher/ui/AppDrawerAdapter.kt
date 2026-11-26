@@ -1,5 +1,7 @@
 package app.olauncher.ui
 
+import android.content.ClipData
+import android.content.ClipboardManager
 import android.content.Context
 import android.content.Intent
 import android.content.pm.LauncherApps
@@ -24,13 +26,16 @@ import app.olauncher.R
 import app.olauncher.data.AppModel
 import app.olauncher.data.Constants
 import app.olauncher.databinding.AdapterAppDrawerBinding
-import app.olauncher.databinding.AdapterPrivateSpaceHeaderBinding
-import app.olauncher.databinding.AdapterContactHeaderBinding
+import app.olauncher.databinding.AdapterCalculatorBinding
 import app.olauncher.databinding.AdapterContactBinding
+import app.olauncher.databinding.AdapterContactHeaderBinding
+import app.olauncher.databinding.AdapterPrivateSpaceHeaderBinding
+import app.olauncher.helper.CalculatorHelper
 import app.olauncher.helper.FontHelper
 import app.olauncher.helper.hideKeyboard
 import app.olauncher.helper.isSystemApp
 import app.olauncher.helper.showKeyboard
+import app.olauncher.helper.showToast
 import java.text.Normalizer
 
 class AppDrawerAdapter(
@@ -55,6 +60,32 @@ class AppDrawerAdapter(
         const val VIEW_TYPE_PRIVATE_HEADER = 1
         const val VIEW_TYPE_CONTACT_HEADER = 2
         const val VIEW_TYPE_CONTACT = 3
+        const val VIEW_TYPE_CALCULATOR = 4
+
+        private fun copyCalculatorResult(context: Context, result: AppModel.CalculatorResult) {
+            try {
+                val clipboard = context.getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+                clipboard.setPrimaryClip(ClipData.newPlainText("Calculator Result", result.rawResult))
+                context.showToast(context.getString(R.string.copied_value, result.formattedResult))
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+
+        private fun openCalculatorApp(context: Context) {
+            try {
+                val intent = Intent.makeMainSelectorActivity(
+                    Intent.ACTION_MAIN,
+                    Intent.CATEGORY_APP_CALCULATOR
+                ).apply {
+                    flags = Intent.FLAG_ACTIVITY_NEW_TASK
+                }
+                context.startActivity(intent)
+            } catch (e: Exception) {
+                e.printStackTrace()
+                context.showToast(context.getString(R.string.unable_to_open_app))
+            }
+        }
 
         val DIFF_CALLBACK = object : DiffUtil.ItemCallback<AppModel>() {
             override fun areItemsTheSame(oldItem: AppModel, newItem: AppModel): Boolean = when {
@@ -70,6 +101,8 @@ class AppDrawerAdapter(
                     oldItem.appLabel == newItem.appLabel && oldItem.phoneNumber == newItem.phoneNumber
 
                 oldItem is AppModel.ContactHeader && newItem is AppModel.ContactHeader -> true
+
+                oldItem is AppModel.CalculatorResult && newItem is AppModel.CalculatorResult -> true
 
                 else -> false
             }
@@ -95,6 +128,7 @@ class AppDrawerAdapter(
             is AppModel.PrivateSpaceHeader -> VIEW_TYPE_PRIVATE_HEADER
             is AppModel.ContactHeader -> VIEW_TYPE_CONTACT_HEADER
             is AppModel.Contact -> VIEW_TYPE_CONTACT
+            is AppModel.CalculatorResult -> VIEW_TYPE_CALCULATOR
             else -> VIEW_TYPE_APP
         }
     }
@@ -112,6 +146,10 @@ class AppDrawerAdapter(
 
             VIEW_TYPE_CONTACT -> ContactViewHolder(
                 AdapterContactBinding.inflate(inflater, parent, false)
+            )
+
+            VIEW_TYPE_CALCULATOR -> CalculatorViewHolder(
+                AdapterCalculatorBinding.inflate(inflater, parent, false)
             )
 
             else -> ViewHolder(
@@ -141,6 +179,12 @@ class AppDrawerAdapter(
 
                 is ContactViewHolder -> {
                     if (appModel is AppModel.Contact) {
+                        holder.bind(appModel, appLabelGravity, fontFamily)
+                    }
+                }
+
+                is CalculatorViewHolder -> {
+                    if (appModel is AppModel.CalculatorResult) {
                         holder.bind(appModel, appLabelGravity, fontFamily)
                     }
                 }
@@ -184,16 +228,28 @@ class AppDrawerAdapter(
 
                 if (flag == Constants.FLAG_LAUNCH_APP &&
                     !isBangSearch &&
-                    !charSearch.isNullOrBlank() &&
-                    ContextCompat.checkSelfPermission(
-                        appContext,
-                        android.Manifest.permission.READ_CONTACTS
-                    ) == PackageManager.PERMISSION_GRANTED
+                    !charSearch.isNullOrBlank()
                 ) {
-                    val contacts = queryContacts(charSearch.toString())
-                    if (contacts.isNotEmpty()) {
-                        filtered.add(AppModel.ContactHeader())
-                        filtered.addAll(contacts)
+                    CalculatorHelper.evaluate(charSearch.toString())?.let { calc ->
+                        filtered.add(
+                            0,
+                            AppModel.CalculatorResult(
+                                expression = calc.expression,
+                                formattedResult = calc.formattedResult,
+                                rawResult = calc.rawResult
+                            )
+                        )
+                    }
+                    if (ContextCompat.checkSelfPermission(
+                            appContext,
+                            android.Manifest.permission.READ_CONTACTS
+                        ) == PackageManager.PERMISSION_GRANTED
+                    ) {
+                        val contacts = queryContacts(charSearch.toString())
+                        if (contacts.isNotEmpty()) {
+                            filtered.add(AppModel.ContactHeader())
+                            filtered.addAll(contacts)
+                        }
                     }
                 }
 
@@ -225,6 +281,7 @@ class AppDrawerAdapter(
                 && appFilteredList[0] !is AppModel.PrivateSpaceHeader
                 && appFilteredList[0] !is AppModel.Contact
                 && appFilteredList[0] !is AppModel.ContactHeader
+                && appFilteredList[0] !is AppModel.CalculatorResult
             ) appClickListener(appFilteredList[0])
         } catch (e: Exception) {
             e.printStackTrace()
@@ -271,6 +328,10 @@ class AppDrawerAdapter(
             it !is AppModel.PrivateSpaceHeader &&
             it !is AppModel.Contact &&
             it !is AppModel.ContactHeader
+        }
+        if (first is AppModel.CalculatorResult) {
+            copyCalculatorResult(appContext, first)
+            return
         }
         if (first != null) appClickListener(first)
     }
@@ -334,6 +395,27 @@ class AppDrawerAdapter(
         fun bind(appLabelGravity: Int, fontFamily: String) {
             binding.contactHeaderTitle.gravity = appLabelGravity
             binding.contactHeaderTitle.typeface = FontHelper.getTypeface(fontFamily)
+        }
+    }
+
+    class CalculatorViewHolder(private val binding: AdapterCalculatorBinding) :
+        RecyclerView.ViewHolder(binding.root) {
+        fun bind(
+            result: AppModel.CalculatorResult,
+            appLabelGravity: Int,
+            fontFamily: String,
+        ) = with(binding) {
+            calcResult.text = "= ${result.formattedResult}"
+            calcResult.gravity = appLabelGravity
+            calcHint.gravity = appLabelGravity
+            val typeface = FontHelper.getTypeface(fontFamily)
+            calcResult.typeface = typeface
+            calcHint.typeface = typeface
+            root.setOnClickListener { copyCalculatorResult(it.context, result) }
+            root.setOnLongClickListener {
+                openCalculatorApp(it.context)
+                true
+            }
         }
     }
 

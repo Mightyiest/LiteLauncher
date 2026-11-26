@@ -60,6 +60,18 @@ sealed class AppModel : Comparable<AppModel> {
         override val isNew: Boolean = false
     }
 
+    data class CalculatorResult(
+        val expression: String,
+        val formattedResult: String,
+        val rawResult: String,
+        override val user: UserHandle = android.os.Process.myUserHandle(),
+    ) : AppModel() {
+        override val appLabel: String = formattedResult
+        override val key: CollationKey? = null
+        override val appPackage: String = ""
+        override val isNew: Boolean = false
+    }
+
     override fun compareTo(other: AppModel): Int = when {
         key != null && other.key != null -> key!!.compareTo(other.key)
         else -> appLabel.compareTo(other.appLabel, true)
