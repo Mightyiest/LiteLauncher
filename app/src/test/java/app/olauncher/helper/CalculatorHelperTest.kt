@@ -1,8 +1,10 @@
 package app.olauncher.helper
 
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class CalculatorHelperTest {
@@ -78,5 +80,30 @@ class CalculatorHelperTest {
         assertNull(CalculatorHelper.evaluate("(10+5"))
         assertNull(CalculatorHelper.evaluate("10/0"))
         assertNull(CalculatorHelper.evaluate("9^9^9"))
+    }
+
+    @Test
+    fun `detects potential math input vs app name queries`() {
+        assertTrue(CalculatorHelper.isPotentialMathInput("7"))
+        assertTrue(CalculatorHelper.isPotentialMathInput("1250"))
+        assertTrue(CalculatorHelper.isPotentialMathInput("1250 + "))
+        assertTrue(CalculatorHelper.isPotentialMathInput("(10"))
+        assertTrue(CalculatorHelper.isPotentialMathInput("=5+5"))
+        assertTrue(CalculatorHelper.isPotentialMathInput("="))
+
+        assertFalse(CalculatorHelper.isPotentialMathInput(""))
+        assertFalse(CalculatorHelper.isPotentialMathInput(" "))
+        assertFalse(CalculatorHelper.isPotentialMathInput("1p"))
+        assertFalse(CalculatorHelper.isPotentialMathInput("7eleven"))
+        assertFalse(CalculatorHelper.isPotentialMathInput("discord"))
+        assertFalse(CalculatorHelper.isPotentialMathInput("2fa"))
+    }
+
+    @Test
+    fun `supports optional leading equals sign`() {
+        val result = CalculatorHelper.evaluate("= 1250 * 0.12")
+        assertNotNull(result)
+        assertEquals("150", result?.rawResult)
+        assertEquals("150", result?.formattedResult)
     }
 }

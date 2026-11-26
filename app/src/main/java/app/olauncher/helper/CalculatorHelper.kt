@@ -25,8 +25,16 @@ object CalculatorHelper {
     private val allowedCharsRegex = Regex("""^[0-9.,+\-*×/÷%^()\s]+$""")
     private val operatorChars = setOf('+', '-', '*', '×', '/', '÷', '%', '^')
 
+    fun isPotentialMathInput(query: String): Boolean {
+        val rawTrimmed = query.trim()
+        if (rawTrimmed.isEmpty()) return false
+        if (rawTrimmed == "=") return true
+        val stripped = rawTrimmed.removePrefix("=").trim()
+        return stripped.isNotEmpty() && allowedCharsRegex.matches(stripped)
+    }
+
     fun evaluate(query: String): CalculationResult? {
-        val trimmed = query.trim()
+        val trimmed = query.trim().removePrefix("=").trim()
         if (trimmed.isEmpty()) return null
         if (!allowedCharsRegex.matches(trimmed)) return null
         if (!trimmed.any { it.isDigit() }) return null

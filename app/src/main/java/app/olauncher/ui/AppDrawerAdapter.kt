@@ -218,8 +218,11 @@ class AppDrawerAdapter(
     private fun createAppFilter(): Filter {
         return object : Filter() {
             override fun performFiltering(charSearch: CharSequence?): FilterResults {
-                isBangSearch = charSearch?.startsWith("!") ?: false
-                autoLaunch = allowAutoLaunch && (charSearch?.startsWith(" ")?.not() ?: true)
+                val queryText = charSearch?.toString().orEmpty()
+                isBangSearch = queryText.startsWith("!")
+                autoLaunch = allowAutoLaunch &&
+                    !queryText.startsWith(" ") &&
+                    !CalculatorHelper.isPotentialMathInput(queryText)
 
                 val filtered = (if (charSearch.isNullOrBlank()) appsList.toMutableList()
                 else appsList.filter { app ->
