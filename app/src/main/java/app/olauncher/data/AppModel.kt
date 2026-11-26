@@ -17,6 +17,8 @@ sealed class AppModel : Comparable<AppModel> {
         val activityClassName: String?,
         override val isNew: Boolean = false,
         override val user: UserHandle,
+        val hasDualClone: Boolean = false,
+        val isDualApp: Boolean = false,
     ) : AppModel()
 
     data class PinnedShortcut(

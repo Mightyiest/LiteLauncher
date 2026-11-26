@@ -142,6 +142,7 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         populateFontSetting()
         populateMindfulAppsCount()
         populateLockHiddenApps()
+        populateMergeDualApps()
         populateSwipeApps()
         populateSwipeDownAction()
         populateActionHints()
@@ -157,6 +158,7 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         populateFontSetting()
         populateMindfulAppsCount()
         populateLockHiddenApps()
+        populateMergeDualApps()
     }
 
     override fun onClick(view: View) {
@@ -210,6 +212,7 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
             R.id.fontCondensed -> updateFontFamily(Constants.FontFamily.CONDENSED)
             R.id.mindfulAppsRow, R.id.mindfulAppsValue -> openMindfulAppsPicker()
             R.id.lockHiddenAppsToggle -> toggleLockHiddenApps()
+            R.id.mergeDualAppsToggle -> toggleMergeDualApps()
             R.id.exportBackup -> onExportBackupClicked()
             R.id.importBackup -> onImportBackupClicked()
             R.id.appThemeText -> binding.appThemeSelectLayout.visibility = View.VISIBLE
@@ -351,6 +354,7 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
         binding.mindfulAppsRow.setOnClickListener(this)
         binding.mindfulAppsValue.setOnClickListener(this)
         binding.lockHiddenAppsToggle.setOnClickListener(this)
+        binding.mergeDualAppsToggle.setOnClickListener(this)
         binding.exportBackup.setOnClickListener(this)
         binding.importBackup.setOnClickListener(this)
 
@@ -870,6 +874,19 @@ class SettingsFragment : Fragment(), View.OnClickListener, View.OnLongClickListe
     private fun populateLockHiddenApps() {
         binding.lockHiddenAppsToggle.text = getString(
             if (prefs.lockHiddenApps) R.string.on else R.string.off
+        )
+    }
+
+    private fun toggleMergeDualApps() {
+        prefs.mergeDualApps = !prefs.mergeDualApps
+        populateMergeDualApps()
+        viewModel.getAppList()
+        viewModel.getHiddenApps()
+    }
+
+    private fun populateMergeDualApps() {
+        binding.mergeDualAppsToggle.text = getString(
+            if (prefs.mergeDualApps) R.string.on else R.string.off
         )
     }
 

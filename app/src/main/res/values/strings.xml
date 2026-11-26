@@ -200,6 +200,7 @@
     <string name="stay_focused">Stay focused</string>
     <string name="open_anyway">Open anyway</string>
     <string name="lock_hidden_apps">Lock hidden apps</string>
+    <string name="merge_dual_apps">Merge dual apps</string>
     <string name="unlock_hidden_apps">Unlock hidden apps</string>
     <string name="unlock_to_continue">Verify with fingerprint or screen lock</string>
     <string name="set_screen_lock_first">Set a screen lock (PIN, pattern, or fingerprint) in system settings first</string>

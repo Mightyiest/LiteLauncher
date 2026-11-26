@@ -405,13 +405,18 @@ class AppDrawerAdapter(
             // Show indicators in title based on app type and state
             appTitle.text = buildString {
                 append(appModel.appLabel)
+                when {
+                    appModel is AppModel.App && appModel.hasDualClone -> append(" \u00B2")
+                    appModel is AppModel.App && appModel.isDualApp -> append(" \u00B7 Dual")
+                    appModel.user != myUserHandle -> append(" \u00B7 Work")
+                }
                 if (appModel.isNew) append(" ✦")
                 if (isMindfulSelected) append(" \u23F3")
             }
             appTitle.typeface = FontHelper.getTypeface(fontFamily, bold = isMindfulSelected)
             etAppRename.typeface = FontHelper.getTypeface(fontFamily)
             appTitle.gravity = appLabelGravity
-            otherProfileIndicator.isVisible = appModel.user != myUserHandle
+            otherProfileIndicator.isVisible = false
 
             appTitle.setOnClickListener { clickListener(appModel) }
 

@@ -54,6 +54,7 @@ class Prefs(context: Context) {
     private val FONT_FAMILY = "FONT_FAMILY"
     private val LOCK_HIDDEN_APPS = "LOCK_HIDDEN_APPS"
     private val MINDFUL_APPS = "MINDFUL_APPS"
+    private val MERGE_DUAL_APPS = "MERGE_DUAL_APPS"
     // Home button for recents feature disabled
     // private val HOME_BUTTON_SHOW_RECENTS = "HOME_BUTTON_SHOW_RECENTS"
 
@@ -731,6 +732,10 @@ class Prefs(context: Context) {
     var mindfulApps: MutableSet<String>
         get() = (prefs.getStringSet(MINDFUL_APPS, emptySet()) ?: emptySet()).toMutableSet()
         set(value) = prefs.edit { putStringSet(MINDFUL_APPS, value.toSet()) }
+
+    var mergeDualApps: Boolean
+        get() = prefs.getBoolean(MERGE_DUAL_APPS, true)
+        set(value) = prefs.edit { putBoolean(MERGE_DUAL_APPS, value) }
 
     fun exportToJson(): String {
         val transientKeys = setOf(

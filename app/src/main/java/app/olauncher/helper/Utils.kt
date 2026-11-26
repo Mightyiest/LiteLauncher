@@ -84,33 +84,51 @@ suspend fun getAppsList(
             val launcherApps =
                 context.getSystemService(Context.LAUNCHER_APPS_SERVICE) as LauncherApps
             val collator = Collator.getInstance()
+            val myUserHandle = android.os.Process.myUserHandle()
+            val mergeDualApps = prefs.mergeDualApps
 
-            for (profile in userManager.userProfiles) {
-                if (isPrivateSpaceProfile(context, profile)) continue
-                for (app in launcherApps.getActivityList(null, profile)) {
-                    val appLabelShown = prefs.getAppRenameLabel(app.applicationInfo.packageName, profile)
+            val profileActivities = userManager.userProfiles
+                .filterNot { isPrivateSpaceProfile(context, it) }
+                .map { profile -> profile to launcherApps.getActivityList(null, profile) }
+
+            val primaryPackages = profileActivities
+                .filter { (profile, _) -> profile == myUserHandle }
+                .flatMap { (_, activities) -> activities.map { it.applicationInfo.packageName } }
+                .toSet()
+            val dualPackages = profileActivities
+                .filter { (profile, _) -> isXiaomiDualProfile(profile) }
+                .flatMap { (_, activities) -> activities.map { it.applicationInfo.packageName } }
+                .toSet()
+
+            for ((profile, activities) in profileActivities) {
+                val isDualProfile = isXiaomiDualProfile(profile)
+                for (app in activities) {
+                    val pkg = app.applicationInfo.packageName
+                    if (pkg == BuildConfig.APPLICATION_ID) continue
+                    if (mergeDualApps && isDualProfile && pkg in primaryPackages) continue
+
+                    val appLabelShown = prefs.getAppRenameLabel(pkg, profile)
                         .ifBlank { app.label.toString() }
                     val appModel = AppModel.App(
                         appLabel = appLabelShown,
                         key = collator.getCollationKey(app.label.toString()),
-                        appPackage = app.applicationInfo.packageName,
+                        appPackage = pkg,
                         activityClassName = app.componentName.className,
                         isNew = (System.currentTimeMillis() - app.firstInstallTime) < Constants.ONE_HOUR_IN_MILLIS,
-                        user = profile
+                        user = profile,
+                        hasDualClone = mergeDualApps && profile == myUserHandle && pkg in dualPackages,
+                        isDualApp = isDualProfile
                     )
 
-                    // if the current app is not OLauncher
-                    if (app.applicationInfo.packageName != BuildConfig.APPLICATION_ID) {
-                        // is this a hidden app?
-                        if (hiddenApps.contains(app.applicationInfo.packageName + "|" + profile.toString())) {
-                            if (includeHiddenApps) {
-                                appList.add(appModel)
-                            }
-                        } else {
-                            // this is a regular app
-                            if (includeRegularApps) {
-                                appList.add(appModel)
-                            }
+                    // is this a hidden app?
+                    if (hiddenApps.contains("$pkg|$profile")) {
+                        if (includeHiddenApps) {
+                            appList.add(appModel)
+                        }
+                    } else {
+                        // this is a regular app
+                        if (includeRegularApps) {
+                            appList.add(appModel)
                         }
                     }
                 }
@@ -194,6 +212,10 @@ fun isPackageInstalled(context: Context, packageName: String, userString: String
     val activityInfo = launcher.getActivityList(packageName, getUserHandleFromString(context, userString))
     if (activityInfo.isNotEmpty()) return true
     return false
+}
+
+fun isXiaomiDualProfile(userHandle: UserHandle): Boolean {
+    return userHandle.toString() == "UserHandle{999}"
 }
 
 fun isPrivateSpaceProfile(context: Context, userHandle: UserHandle): Boolean {

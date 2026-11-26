@@ -230,11 +230,15 @@ class AppDrawerFragment : Fragment() {
 
                 val newSet = mutableSetOf<String>()
                 newSet.addAll(prefs.hiddenApps)
+                val dualSynced = appModel is AppModel.App && appModel.hasDualClone && prefs.mergeDualApps
                 if (flag == Constants.FLAG_HIDDEN_APPS) {
                     newSet.remove(appModel.appPackage) // for backward compatibility
                     newSet.remove(appModel.appPackage + "|" + appModel.user.toString())
-                } else
+                    if (dualSynced) newSet.remove(appModel.appPackage + "|UserHandle{999}")
+                } else {
                     newSet.add(appModel.appPackage + "|" + appModel.user.toString())
+                    if (dualSynced) newSet.add(appModel.appPackage + "|UserHandle{999}")
+                }
 
                 prefs.hiddenApps = newSet
                 if (newSet.isEmpty())
